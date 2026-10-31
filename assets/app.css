@@ -283,3 +283,9 @@ table.tbl{width:100%;border-collapse:collapse;font-size:14px}
 .msg-box{padding:16px 18px;border-radius:10px;background:var(--amb-bg);border-left:4px solid var(--warn);margin-bottom:16px}
 .msg-box.err{background:var(--bad-bg);border-color:var(--danger)}
 .resume-note{background:var(--brand-lt);border-left:4px solid var(--brand);padding:12px 16px;border-radius:8px;margin-bottom:14px}
+
+/* ===== Diagrams / figures inside questions, options and solutions ===== */
+.q-text img,.ot img,.st img,.q-text svg.fig,.ot svg.fig,.st svg.fig{max-width:100%;height:auto;display:block;margin:10px auto;border-radius:6px}
+.ot img,.ot svg.fig{margin:4px 0;max-height:180px}
+.fig-cap{text-align:center;font-size:13px;color:var(--muted);margin-top:-4px}
+@media (prefers-color-scheme: dark){ .q-text img,.ot img,.st img{background:#fff} }

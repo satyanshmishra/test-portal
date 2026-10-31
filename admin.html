@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Admin — Satyansh's Test Papers</title>
+<link rel="stylesheet" href="assets/app.css">
+<script src="config.js"></script>
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']] },
+  svg: { fontCache: 'global' }, options: { enableMenu: false }, startup: { typeset: false }
+};
+</script>
+<script src="assets/mathjax-tex-svg.js" async></script>
+<style>
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 16px}
+.tab{background:#fff;border:1px solid var(--line);border-radius:8px;padding:9px 16px;font-weight:700;color:var(--muted)}
+.tab.on{background:var(--brand);border-color:var(--brand);color:#fff}
+.pane{display:none}.pane.on{display:block}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+.field select,.field textarea{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:8px;font-size:15px;font-family:inherit;background:#fff}
+.field textarea{min-height:120px;font-family:ui-monospace,Consolas,monospace;font-size:13px}
+.field small{color:var(--muted)}
+.tbl td input{width:70px;padding:6px;border:1px solid var(--line);border-radius:6px;text-align:center;font-family:inherit}
+.tbl td input.wide{width:150px;text-align:left}
+.st-on{background:var(--ok-bg);color:#1d7a45}.st-off{background:var(--neu-bg);color:var(--muted)}
+.st{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700}
+.actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+.btn.xs{padding:5px 10px;font-size:13px}
+.keygrid{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.keygrid span{background:#f1f3f7;border-radius:6px;padding:4px 8px;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums}
+.warn-list{background:var(--amb-bg);border-left:4px solid var(--warn);border-radius:8px;padding:10px 14px 10px 30px;margin:10px 0}
+.preview{border:1px solid var(--line);border-radius:10px;padding:16px;margin-top:10px;overflow-x:auto}
+.filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.filters input,.filters select{padding:9px 12px;border:1px solid var(--line);border-radius:8px;font-family:inherit;font-size:14px}
+.drop{display:block;border:2px dashed #b9c6da;border-radius:12px;padding:22px;text-align:center;background:#fafbfd;cursor:pointer;color:var(--muted)}
+.drop.over{border-color:var(--brand);background:var(--brand-lt)}
+</style>
+</head>
+<body>
+
+<!-- ============ LOGIN ============ -->
+<section id="aLogin" class="screen active">
+  <div class="wrap">
+    <form class="card login-card" id="aForm" novalidate>
+      <span class="paper-tag">ADMIN PANEL</span>
+      <h1>Teacher Login</h1>
+      <p class="sub">Manage test papers and see student results.</p>
+      <div class="msg-box err" id="aCfg" style="display:none">API_URL is empty in <b>config.js</b>. Paste your Apps Script Web App URL there first.</div>
+      <div class="field">
+        <label for="aPass">Admin Password</label>
+        <input id="aPass" type="password" autocomplete="current-password" placeholder="Enter admin password">
+        <div class="err" id="aErr"></div>
+      </div>
+      <button class="btn" type="submit">Login →</button>
+    </form>
+  </div>
+</section>
+
+<!-- ============ DASHBOARD ============ -->
+<section id="aDash" class="screen">
+  <header class="topbar appbar">
+    <div class="topbar-in">
+      <div class="tb-left"><div class="t1">Admin Panel</div><div class="t2 js-brand"></div></div>
+      <div class="user-box">
+        <a class="btn small onbrand" id="sheetLink" href="#" target="_blank" rel="noopener" style="text-decoration:none">📊 Open Google Sheet</a>
+        <a class="btn small onbrand" href="./" target="_blank" rel="noopener" style="text-decoration:none">Student Site ↗</a>
+        <button class="btn small onbrand" id="aLogout" type="button">Logout</button>
+      </div>
+    </div>
+  </header>
+  <div class="wrap">
+    <div class="tabs">
+      <button class="tab on" data-tab="pPapers" type="button">📚 Papers</button>
+      <button class="tab" data-tab="pAdd" type="button" id="tabAdd">➕ Add Paper</button>
+      <button class="tab" data-tab="pResults" type="button">📈 Results</button>
+    </div>
+
+    <!-- Papers -->
+    <div class="pane on" id="pPapers">
+      <div class="card sec">
+        <h2>Test Papers</h2>
+        <p class="hint">Hidden papers are not shown to students. Use ▲ ▼ to change the order students see.</p>
+        <div class="tbl-wrap" id="paperTable"><p class="hint">Loading…</p></div>
+      </div>
+    </div>
+
+    <!-- Add / Edit -->
+    <div class="pane" id="pAdd">
+      <div class="card sec">
+        <h2 id="formTitle">Add a New Paper</h2>
+        <p class="hint">Upload the paper's <b>.json</b> question file (made by Claude or by mocktest_builder.py), check the details, then Save. It goes live for students immediately.</p>
+        <div id="dropWrap">
+          <label class="drop" id="drop"><input type="file" id="fileIn" accept=".json,application/json" hidden>
+            <b>Click to choose the .json file</b> or drag it here</label>
+          <details style="margin-top:10px"><summary style="cursor:pointer;color:var(--brand);font-weight:600">…or paste the JSON text</summary>
+            <div class="field" style="margin-top:8px"><textarea id="jsonTxt" placeholder='{"sections": [...], "questions": [...]}'></textarea></div>
+            <button class="btn small light" type="button" id="parseBtn">Load pasted JSON</button>
+          </details>
+        </div>
+        <div id="formBody" style="display:none;margin-top:18px">
+          <div class="grid2">
+            <div class="field"><label>Paper Name *</label><input id="fName" placeholder="e.g. Paper 5 — Quadratic Equations"></div>
+            <div class="field"><label>Exam</label><input id="fExam" placeholder="JEE (Main)"></div>
+            <div class="field"><label>Subject</label><input id="fSubject" placeholder="Mathematics"></div>
+            <div class="field"><label>Duration (minutes) *</label><input id="fDur" type="number" min="1" max="600"></div>
+          </div>
+          <h2 style="font-size:16px;margin:10px 0 8px">Sections &amp; Marking</h2>
+          <div class="tbl-wrap" id="secTable"></div>
+          <h2 style="font-size:16px;margin:18px 0 4px">Answer Key — please check against your paper</h2>
+          <div id="keyBox"></div>
+          <div id="warnBox"></div>
+          <h2 style="font-size:16px;margin:18px 0 4px">Question Preview</h2>
+          <div class="filters"><select id="pvSel"></select></div>
+          <div class="preview" id="pvBox"></div>
+          <div class="modal-actions" style="justify-content:space-between">
+            <button class="btn light" type="button" id="cancelForm">Cancel</button>
+            <button class="btn green" type="button" id="saveBtn">💾 Save Paper</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div class="pane" id="pResults">
+      <div class="card sec">
+        <h2>Student Results</h2>
+        <p class="hint">Every submitted test. The full data (with question-wise responses) is in the Google Sheet. <b>Reopen</b> lets a student attempt that paper again.</p>
+        <div class="filters">
+          <select id="rPaper"><option value="">All papers</option></select>
+          <input id="rSearch" placeholder="Search name or phone">
+          <button class="btn small light" type="button" id="rRefresh">↻ Refresh</button>
+        </div>
+        <div class="tbl-wrap" id="resTable"><p class="hint">Loading…</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="overlay" id="overlay"><div class="spinner"></div><div id="overlayMsg">Working…</div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const CFG=window.APP_CONFIG||{}, API=(CFG.API_URL||'').trim(), BRAND=CFG.HEADING||"Satyansh's Test Papers";
+const $=id=>document.getElementById(id), LET='ABCDEFGH';
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active',s.id===id));window.scrollTo(0,0);}
+let toastT;function toast(m,ms=3500){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),ms);}
+function busy(on,msg){$('overlayMsg').textContent=msg||'Working…';$('overlay').classList.toggle('open',!!on);}
+function typeset(el,t=0){ if(window.MathJax&&MathJax.typesetPromise&&MathJax.startup&&MathJax.startup.promise){MathJax.startup.promise=MathJax.startup.promise.then(()=>{if(MathJax.typesetClear)MathJax.typesetClear([el]);return MathJax.typesetPromise([el]);}).catch(()=>{});} else if(t<80) setTimeout(()=>typeset(el,t+1),250); }
+const SS={get(k){try{return sessionStorage.getItem(k)}catch(e){return null}},set(k,v){try{sessionStorage.setItem(k,v)}catch(e){}},del(k){try{sessionStorage.removeItem(k)}catch(e){}}};
+document.querySelectorAll('.js-brand').forEach(e=>e.textContent=BRAND);
+if(!API) $('aCfg').style.display='block';
+
+let PASS='', PAPERS=[], RESULTS=[], DRAFT=null, EDIT_ID=null;
+async function admin(op, extra={}){
+  const r=await fetch(API,{method:'POST',redirect:'follow',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(Object.assign({action:'admin',op,password:PASS},extra))});
+  const j=await r.json(); if(!j.ok) throw new Error(j.error||'Request failed'); return j;
+}
+
+/* ---------- login ---------- */
+$('aForm').addEventListener('submit',async e=>{e.preventDefault(); if(!API) return; PASS=$('aPass').value; await doLogin();});
+async function doLogin(){
+  busy(true,'Signing in…');
+  try{ const r=await admin('login'); SS.set('stp_admin',PASS); $('sheetLink').href=r.sheetUrl||'#'; $('aErr').textContent='';
+       show('aDash'); await loadPapers(); }
+  catch(err){ $('aErr').textContent=err.message==='Wrong password'?'Wrong password.':('Could not connect: '+err.message); SS.del('stp_admin'); }
+  busy(false);
+}
+$('aLogout').addEventListener('click',()=>{SS.del('stp_admin');PASS='';$('aPass').value='';show('aLogin');});
+(function(){const p=SS.get('stp_admin'); if(API&&p){PASS=p;doLogin();}})();
+
+/* ---------- tabs ---------- */
+function tab(id){document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.dataset.tab===id));document.querySelectorAll('.pane').forEach(p=>p.classList.toggle('on',p.id===id));
+  if(id==='pResults') loadResults(); if(id==='pPapers') loadPapers(); }
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{ if(t.dataset.tab==='pAdd' && !EDIT_ID) resetForm(); tab(t.dataset.tab); }));
+
+/* ---------- papers ---------- */
+async function loadPapers(){
+  try{ PAPERS=(await admin('papers')).papers||[]; }catch(e){ $('paperTable').innerHTML=`<div class="msg-box err">${esc(e.message)}</div>`; return; }
+  if(!PAPERS.length){ $('paperTable').innerHTML='<div class="empty">No papers yet. Use <b>➕ Add Paper</b> to upload your first paper.</div>'; }
+  else $('paperTable').innerHTML=`<table class="tbl"><thead><tr><th>#</th><th class="l">Paper</th><th>Questions</th><th>Duration</th><th>Marks</th><th>Status</th><th>Order</th><th>Actions</th></tr></thead><tbody>${
+    PAPERS.map((p,k)=>`<tr><td>${k+1}</td><td class="l"><b>${esc(p.name)}</b><br><span style="font-size:12px;color:var(--muted)">${esc([p.exam,p.subject].filter(Boolean).join(' · '))} · ID ${esc(p.id)} · updated ${esc(p.updated)}</span></td>
+      <td>${p.questions}</td><td>${p.durationMin} min</td><td>${p.maxMarks}</td>
+      <td><span class="st ${p.active?'st-on':'st-off'}">${p.active?'Visible':'Hidden'}</span></td>
+      <td><div class="actions"><button class="btn xs light" data-up="${k}" ${k===0?'disabled':''}>▲</button><button class="btn xs light" data-down="${k}" ${k===PAPERS.length-1?'disabled':''}>▼</button></div></td>
+      <td><div class="actions"><button class="btn xs light" data-toggle="${esc(p.id)}">${p.active?'Hide':'Show'}</button>
+        <button class="btn xs ghost" data-edit="${esc(p.id)}">Edit</button><button class="btn xs red" data-del="${esc(p.id)}">Delete</button></div></td></tr>`).join('')}</tbody></table>`;
+  $('rPaper').innerHTML='<option value="">All papers</option>'+PAPERS.map(p=>`<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('');
+}
+$('paperTable').addEventListener('click',async e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  try{
+    if(b.dataset.toggle){ const p=PAPERS.find(x=>x.id===b.dataset.toggle); busy(true); await admin('setActive',{id:p.id,active:!p.active}); toast(p.active?'Paper hidden from students':'Paper is now visible'); }
+    else if(b.dataset.up||b.dataset.down){ const k=+(b.dataset.up||b.dataset.down), j=b.dataset.up?k-1:k+1;
+      const arr=PAPERS.slice(); [arr[k],arr[j]]=[arr[j],arr[k]]; busy(true,'Saving order…');
+      for(let i=0;i<arr.length;i++) if(arr[i].order!==i+1) await admin('setOrder',{id:arr[i].id,order:i+1}); }
+    else if(b.dataset.edit){ busy(true,'Loading paper…'); const r=await admin('getPaper',{id:b.dataset.edit}); EDIT_ID=b.dataset.edit; loadDraft(r.paper,true); tab('pAdd'); busy(false); return; }
+    else if(b.dataset.del){ const p=PAPERS.find(x=>x.id===b.dataset.del);
+      if(!confirm(`Delete "${p.name}"?\n\nStudents will no longer see it. Results already in the Google Sheet are kept.`)) return;
+      busy(true,'Deleting…'); await admin('deletePaper',{id:p.id}); toast('Paper deleted'); }
+    await loadPapers();
+  }catch(err){ toast('Error: '+err.message,5000); }
+  busy(false);
+});
+
+/* ---------- add / edit ---------- */
+function resetForm(){ EDIT_ID=null; DRAFT=null; $('formTitle').textContent='Add a New Paper'; $('dropWrap').style.display=''; $('formBody').style.display='none'; $('fileIn').value=''; $('jsonTxt').value=''; }
+$('cancelForm').addEventListener('click',()=>{resetForm();tab('pPapers');});
+$('fileIn').addEventListener('change',e=>{const f=e.target.files[0]; if(f) readFile(f);});
+const drop=$('drop');
+['dragover','dragenter'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over');}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over');}));
+drop.addEventListener('drop',e=>{const f=e.dataTransfer.files[0]; if(f) readFile(f);});
+function readFile(f){ const rd=new FileReader(); rd.onload=()=>parseJSON(rd.result, f.name); rd.readAsText(f,'utf-8'); }
+$('parseBtn').addEventListener('click',()=>parseJSON($('jsonTxt').value,''));
+function parseJSON(txt, fname){
+  let d; try{ d=JSON.parse(txt.replace(/^﻿/,'')); }catch(e){ toast('This is not a valid JSON file: '+e.message,6000); return; }
+  if(!d || !Array.isArray(d.questions) || !d.questions.length){ toast('No "questions" found in this file.',5000); return; }
+  if(!d.settings) d.settings={paperName:d.title||(fname||'').replace(/(_questions)?\.json$/i,'').replace(/_/g,' '), durationMin:d.durationMin||60};
+  loadDraft(d,false);
+}
+function normalise(d){
+  const warn=[]; let secs=d.sections||[];
+  if(!secs.length){ const ids=[]; d.questions.forEach(q=>{q.section=q.section||(q.type==='mcq'?'A':'B'); if(!ids.includes(q.section)) ids.push(q.section);});
+    secs=ids.map(i=>({id:i,title:'Section '+i,type:(d.questions.find(q=>q.section===i)||{}).type||'mcq',correct:4,wrong:-1})); }
+  secs.forEach(s=>{ s.title=s.title||('Section '+s.id); s.correct=Number(s.correct??4); s.wrong=Number(s.wrong??-1); if(s.wrong>0) s.wrong=-s.wrong; });
+  const ids=secs.map(s=>s.id);
+  d.questions.forEach((q,n)=>{
+    if(!ids.includes(q.section)){ warn.push(`Q${n+1}: unknown section "${q.section}" — moved to ${secs[0].id}`); q.section=secs[0].id; }
+    q.type=q.type||(secs.find(s=>s.id===q.section)||{}).type||'mcq'; q.topic=q.topic||'General'; q.area=q.area||q.topic; q.sol=q.sol||'';
+    if(q.type==='mcq'){
+      if(!Array.isArray(q.opts)||q.opts.length<2) warn.push(`Q${n+1}: MCQ has fewer than 2 options`);
+      if(typeof q.ans==='string' && /^[A-H]$/i.test(q.ans.trim())) q.ans=LET.indexOf(q.ans.trim().toUpperCase());
+      q.ans=Number(q.ans); if(!(q.ans>=0 && q.ans<(q.opts||[]).length)) warn.push(`Q${n+1}: answer index is outside the options`);
+    }else{ delete q.opts; if(isNaN(Number(q.ans))) warn.push(`Q${n+1}: numerical answer "${q.ans}" is not a number`); else q.ans=Number(q.ans); }
+    if(!q.q || !String(q.q).trim()) warn.push(`Q${n+1}: question text is empty`);
+    if(!q.sol) warn.push(`Q${n+1}: no solution given`);
+  });
+  d.sections=secs; return warn;
+}
+function loadDraft(d, editing){
+  DRAFT=JSON.parse(JSON.stringify(d)); const warn=normalise(DRAFT); const st=DRAFT.settings||{};
+  $('formTitle').textContent=editing?('Edit Paper — '+(st.paperName||'')):'Add a New Paper';
+  $('dropWrap').style.display=editing?'none':''; $('formBody').style.display='';
+  $('fName').value=st.paperName||''; $('fExam').value=st.exam||'JEE (Main)'; $('fSubject').value=st.subject||'Mathematics'; $('fDur').value=st.durationMin||60;
+  renderSecTable(); renderKey(warn);
+  $('pvSel').innerHTML=DRAFT.questions.map((q,i)=>`<option value="${i}">Question ${i+1} — ${esc(q.topic)}</option>`).join('');
+  preview(0);
+}
+function renderSecTable(){
+  $('secTable').innerHTML=`<table class="tbl"><thead><tr><th class="l">Section</th><th>Type</th><th>Questions</th><th>Correct (+)</th><th>Wrong (−)</th></tr></thead><tbody>${
+    DRAFT.sections.map((s,k)=>`<tr><td class="l"><input class="wide" data-st="${k}" value="${esc(s.title)}"></td><td>${s.type==='mcq'?'MCQ':'Numerical'}</td>
+    <td>${DRAFT.questions.filter(q=>q.section===s.id).length}</td>
+    <td><input type="number" step="any" data-sc="${k}" value="${s.correct}"></td><td><input type="number" step="any" data-sw="${k}" value="${s.wrong}"></td></tr>`).join('')}</tbody></table>
+    <p class="hint" style="margin-top:6px">Wrong = marks for a wrong answer, e.g. −1. Use 0 for no negative marking. Max marks: <b id="maxM"></b></p>`;
+  updMax();
+}
+$('secTable').addEventListener('input',e=>{const t=e.target;
+  if(t.dataset.st) DRAFT.sections[+t.dataset.st].title=t.value;
+  if(t.dataset.sc) DRAFT.sections[+t.dataset.sc].correct=Number(t.value);
+  if(t.dataset.sw){ let v=Number(t.value); DRAFT.sections[+t.dataset.sw].wrong=v>0?-v:v; }
+  updMax();});
+function updMax(){ const m={}; DRAFT.sections.forEach(s=>m[s.id]=Number(s.correct)||0); const el=$('maxM'); if(el) el.textContent=DRAFT.questions.reduce((t,q)=>t+(m[q.section]||0),0); }
+function renderKey(warn){
+  const qs=DRAFT.questions;
+  const key=qs.map((q,i)=>`<span>Q${i+1}: ${q.type==='mcq'?(LET[q.ans]||'?'):esc(q.ans)}</span>`).join('');
+  const mcq=qs.filter(q=>q.type==='mcq'); const dist=[0,1,2,3].map(i=>`${LET[i]}=${mcq.filter(q=>q.ans===i).length}`).join(' · ');
+  $('keyBox').innerHTML=`<div class="keygrid">${key}</div><p class="hint">${qs.length} questions · MCQ answer distribution: ${dist}</p>`;
+  $('warnBox').innerHTML=warn.length?`<ul class="warn-list">${warn.map(w=>`<li>${esc(w)}</li>`).join('')}</ul>`:'<p style="color:#1d7a45;font-weight:600;margin:6px 0">✓ No problems found in the file.</p>';
+}
+$('pvSel').addEventListener('change',e=>preview(+e.target.value));
+function preview(i){
+  const q=DRAFT.questions[i]; if(!q) return;
+  let h=`<div class="q-text">${q.q}</div>`;
+  if(q.type==='mcq') h+=q.opts.map((o,k)=>`<div class="sol-opt${k===q.ans?' correct':''}"><span class="ol">${LET[k]}</span><span class="ot">${o}</span>${k===q.ans?'<span class="badge c">Correct</span>':''}</div>`).join('');
+  else h+=`<p><b>Answer:</b> ${esc(q.ans)}${q.tol!=null?' (± '+esc(q.tol)+')':''}</p>`;
+  h+=`<div class="sol-box" style="margin-top:12px"><h3>Solution</h3><div class="st">${q.sol||'<i>none</i>'}</div></div>`;
+  $('pvBox').innerHTML=h; typeset($('pvBox'));
+}
+$('saveBtn').addEventListener('click',async()=>{
+  const name=$('fName').value.trim(), dur=parseInt($('fDur').value,10);
+  if(!name){ toast('Please enter the paper name.'); $('fName').focus(); return; }
+  if(!(dur>0)){ toast('Please enter the duration in minutes.'); $('fDur').focus(); return; }
+  DRAFT.settings={paperName:name, exam:$('fExam').value.trim(), subject:$('fSubject').value.trim(), durationMin:dur};
+  const paper={settings:DRAFT.settings, sections:DRAFT.sections, instructions:DRAFT.instructions||[], questions:DRAFT.questions};
+  busy(true,'Saving paper…');
+  try{ await admin('savePaper',{paper, id:EDIT_ID||undefined}); toast(EDIT_ID?'Paper updated ✓':'Paper added — students can see it now ✓',4500); resetForm(); tab('pPapers'); }
+  catch(err){ toast('Could not save: '+err.message,6000); }
+  busy(false);
+});
+
+/* ---------- results ---------- */
+async function loadResults(){
+  $('resTable').innerHTML='<p class="hint">Loading…</p>';
+  try{ const r=await admin('results',{limit:1000}); RESULTS=r.results||[]; renderResults(); }
+  catch(e){ $('resTable').innerHTML=`<div class="msg-box err">${esc(e.message)}</div>`; }
+}
+function renderResults(){
+  const pf=$('rPaper').value, s=$('rSearch').value.trim().toLowerCase();
+  const list=RESULTS.filter(r=>(!pf||r.paperId===pf)&&(!s||String(r.name).toLowerCase().includes(s)||String(r.phone).includes(s)));
+  if(!list.length){ $('resTable').innerHTML='<div class="empty">No results yet.</div>'; return; }
+  $('resTable').innerHTML=`<p class="hint">${list.length} result(s)</p><table class="tbl"><thead><tr><th class="l">Submitted</th><th class="l">Name</th><th>Phone</th><th class="l">Paper</th><th>Score</th><th>%</th><th>C / W / S</th><th>Time (min)</th><th>Auto</th><th>Status</th><th></th></tr></thead><tbody>${
+    list.map(r=>{const re=String(r.status||'').toLowerCase().includes('reopen');
+      return `<tr${re?' style="opacity:.55"':''}><td class="l">${esc(r.time)}</td><td class="l">${esc(r.name)}</td><td>${esc(r.phone)}</td><td class="l">${esc(r.paperName)}</td>
+      <td><b>${esc(r.score)}</b> / ${esc(r.maxMarks)}</td><td>${esc(r.pct)}</td><td><span class="res-c">${esc(r.correct)}</span> / <span class="res-w">${esc(r.wrong)}</span> / ${esc(r.skipped)}</td>
+      <td>${esc(r.minutes)}</td><td>${esc(r.auto)}</td><td style="font-size:12px">${esc(r.status||'—')}</td>
+      <td>${re?'':`<button class="btn xs light" data-reopen="${esc(r.phone)}|${esc(r.paperId)}|${esc(r.name)}|${esc(r.paperName)}">Reopen</button>`}</td></tr>`;}).join('')}</tbody></table>`;
+}
+$('rPaper').addEventListener('change',renderResults);
+$('rSearch').addEventListener('input',renderResults);
+$('rRefresh').addEventListener('click',loadResults);
+$('resTable').addEventListener('click',async e=>{
+  const b=e.target.closest('[data-reopen]'); if(!b) return;
+  const [phone,paperId,name,paperName]=b.dataset.reopen.split('|');
+  if(!confirm(`Allow ${name} (${phone}) to attempt "${paperName}" again?\n\nThe old result stays in the sheet, marked "Reopened".`)) return;
+  busy(true,'Reopening…');
+  try{ await admin('reopen',{phone,paperId}); toast('Done — the student can attempt this paper again.'); await loadResults(); }
+  catch(err){ toast('Error: '+err.message,5000); }
+  busy(false);
+});
+</script>
+</body>
+</html>

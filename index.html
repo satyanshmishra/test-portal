@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Satyansh's Test Papers — Online Mock Tests</title>
+<link rel="stylesheet" href="assets/app.css">
+<script src="config.js"></script>
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']] },
+  svg: { fontCache: 'global' },
+  options: { enableMenu: false },
+  startup: { typeset: false }
+};
+</script>
+<script src="assets/mathjax-tex-svg.js" async></script>
+</head>
+<body>
+
+<!-- ================= LOGIN ================= -->
+<section id="login" class="screen active">
+  <div class="wrap">
+    <form class="card login-card" id="loginForm" novalidate>
+      <span class="paper-tag js-brand"></span>
+      <h1>Candidate Login</h1>
+      <p class="sub">Enter your details to see your mock tests.</p>
+      <div class="msg-box err" id="cfgErr" style="display:none">The test server is not connected yet. Please try again later.</div>
+      <div class="field">
+        <label for="cName">Full Name</label>
+        <input id="cName" type="text" autocomplete="name" placeholder="Enter your full name" maxlength="60">
+        <div class="err" id="nameErr"></div>
+      </div>
+      <div class="field">
+        <label for="cPhone">Contact Number</label>
+        <input id="cPhone" type="tel" inputmode="numeric" autocomplete="tel" placeholder="10-digit mobile number" maxlength="15">
+        <div class="err" id="phoneErr"></div>
+      </div>
+      <button class="btn" type="submit" id="loginBtn">Continue →</button>
+    </form>
+  </div>
+</section>
+
+<!-- ================= PAPER LIST ================= -->
+<section id="papers" class="screen">
+  <header class="topbar appbar">
+    <div class="topbar-in">
+      <div class="tb-left"><div class="t1 js-brand-plain"></div><div class="t2">Online Mock Tests</div></div>
+      <div class="user-box">
+        <div class="avatar js-avatar">?</div>
+        <div><div class="nm js-uname"></div><div class="ph js-uphone"></div></div>
+        <button class="btn small onbrand" id="logoutBtn" type="button">Logout</button>
+      </div>
+    </div>
+  </header>
+  <div class="wrap">
+    <div class="page-head"><h1>Your Test Papers</h1><p>Select a paper to begin. Each paper can be attempted once.</p></div>
+    <div id="paperMsg"></div>
+    <div class="paper-grid" id="paperGrid"></div>
+  </div>
+</section>
+
+<!-- ================= INSTRUCTIONS ================= -->
+<section id="instructions" class="screen">
+  <div class="wrap">
+    <div class="card ins-card">
+      <span class="paper-tag js-tag"></span>
+      <h1 id="insTitle">Instructions</h1>
+      <p style="margin:0;color:var(--muted)">Welcome, <b id="insName" style="color:var(--ink)"></b>. Please read the instructions carefully before starting.</p>
+      <div class="facts" id="facts"></div>
+      <h2>General Instructions</h2>
+      <ol id="genIns"></ol>
+      <h2>Navigating the Test</h2>
+      <ul>
+        <li>Click an option to select it. For numerical questions, type your answer in the box. Responses are saved automatically.</li>
+        <li><b>Save &amp; Next</b> moves to the next question. <b>Clear Response</b> removes your answer to the current question.</li>
+        <li><b>Mark for Review &amp; Next</b> flags a question so you can come back to it later.</li>
+        <li>Use the <b>Question Palette</b> to jump to any question at any time.</li>
+        <li>A <b>Submit Test</b> button is available on every question. You will see a summary before final submission.</li>
+      </ul>
+      <p style="margin:12px 0 4px;font-weight:600">Question Palette colour codes:</p>
+      <div class="legend-row">
+        <div><span class="chip small nv">1</span> Not Visited</div>
+        <div><span class="chip small na">2</span> Not Answered</div>
+        <div><span class="chip small an">3</span> Answered</div>
+        <div><span class="chip small mr">4</span> Marked for Review</div>
+        <div><span class="chip small am">5</span> Answered &amp; Marked for Review</div>
+      </div>
+      <p style="font-size:14px;color:var(--muted);margin:4px 0 0">Questions that are <b>Answered &amp; Marked for Review</b> will be evaluated. Questions only marked for review (without an answer) will not.</p>
+      <h2>Terms &amp; Conditions</h2>
+      <div class="tc-box">
+        <ol>
+          <li>I am the candidate whose name and contact number were entered on the login page, and I will attempt this test myself.</li>
+          <li>I will not use any books, notes, calculators, mobile phones, websites, AI tools or help from any other person during the test.</li>
+          <li>I understand that the timer cannot be paused once the test has started, and it keeps running even if I close or leave this page.</li>
+          <li>I understand that this paper can be attempted <b>only once</b> with my contact number.</li>
+          <li>I understand that the test will be submitted automatically when the time limit ends.</li>
+          <li>I understand that once I click <b>Final Submit</b>, I cannot change any answer.</li>
+          <li id="tcMarking"></li>
+          <li>I understand that my name, contact number, answers and result will be recorded by the teacher.</li>
+          <li>I understand that the result and topic analysis are for practice and self-assessment only, and are not an official score.</li>
+          <li>I will not copy, share or distribute the questions or solutions of this paper without permission.</li>
+        </ol>
+      </div>
+      <label class="agree"><input type="checkbox" id="agree"> I have read and understood the instructions and I agree to all the terms and conditions stated above.</label>
+      <div class="ins-actions">
+        <button class="btn light" id="backPapers" type="button">← All Papers</button>
+        <button class="btn green" id="startBtn" type="button" disabled>I Agree — Start Test</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= EXAM ================= -->
+<section id="exam" class="screen">
+  <header class="topbar">
+    <div class="topbar-in">
+      <div class="tb-left">
+        <div class="t1 js-head"></div>
+        <div class="t2 js-sub"></div>
+      </div>
+      <div class="tb-right">
+        <div class="timer-box" id="timerBox"><small>Time Left</small><span id="timer">00:00</span></div>
+        <div class="tracker">
+          <span class="t-an">Answered: <b id="cAns">0</b></span>
+          <span class="t-un">Unanswered: <b id="cUn">0</b></span>
+          <span class="t-mr">Marked: <b id="cMr">0</b></span>
+        </div>
+      </div>
+    </div>
+  </header>
+  <div class="exam-grid">
+    <main class="card qpanel">
+      <div class="q-head">
+        <div class="q-meta" id="qMeta"></div>
+        <div class="qclock">Time on this question: <b id="qTime">00:00</b></div>
+      </div>
+      <div class="q-body" id="qBody"></div>
+      <div class="q-actions">
+        <div class="grp">
+          <button class="btn light" id="prevBtn" type="button">← Previous</button>
+          <button class="btn light" id="clearBtn" type="button">Clear Response</button>
+        </div>
+        <div class="grp">
+          <button class="btn purple" id="markBtn" type="button">Mark for Review &amp; Next</button>
+          <button class="btn green" id="nextBtn" type="button">Save &amp; Next →</button>
+        </div>
+      </div>
+    </main>
+    <aside class="card side">
+      <div class="cand">
+        <div class="avatar js-avatar2">?</div>
+        <div><div class="nm js-uname"></div><div class="ph js-uphone"></div></div>
+      </div>
+      <div class="legend" id="legend"></div>
+      <div id="palWrap"></div>
+      <button class="btn red" id="submitBtn" type="button">Submit Test</button>
+    </aside>
+  </div>
+</section>
+
+<!-- ================= RESULT ================= -->
+<section id="result" class="screen">
+  <div class="wrap" id="reportWrap"></div>
+</section>
+
+<!-- ================= SOLUTIONS ================= -->
+<section id="solutions" class="screen">
+  <header class="topbar">
+    <div class="topbar-in">
+      <div class="tb-left">
+        <div class="t1" id="solHead"></div>
+        <div class="t2" id="solWho"></div>
+      </div>
+      <button class="btn light" id="backReport" type="button">← Back to Report</button>
+    </div>
+  </header>
+  <div class="sol-grid">
+    <main class="card qpanel">
+      <div class="q-head"><div class="q-meta" id="sMeta"></div><div class="qclock" id="sTime"></div></div>
+      <div class="q-body" id="sBody"></div>
+      <div class="q-actions">
+        <div class="grp"><button class="btn light" id="sPrev" type="button">← Previous</button></div>
+        <div class="grp"><button class="btn" id="sNext" type="button">Next →</button></div>
+      </div>
+    </main>
+    <aside class="card side">
+      <div class="legend">
+        <div><span class="chip small rc">1</span> Correct</div>
+        <div><span class="chip small rw">2</span> Incorrect</div>
+        <div><span class="chip small ru">3</span> Not Attempted</div>
+      </div>
+      <div id="sPalWrap"></div>
+    </aside>
+  </div>
+</section>
+
+<!-- ================= SUMMARY MODAL ================= -->
+<div class="modal" id="summaryModal" role="dialog" aria-modal="true" aria-labelledby="sumTitle">
+  <div class="modal-card">
+    <h2 id="sumTitle">Exam Summary</h2>
+    <p>Review your attempt before final submission. Time remaining: <b id="sumTime"></b></p>
+    <div class="tbl-wrap" id="sumTable"></div>
+    <div class="note" id="sumNote"></div>
+    <div class="modal-actions">
+      <button class="btn light" id="sumBack" type="button">← Go Back to Test</button>
+      <button class="btn red" id="finalSubmit" type="button">Final Submit</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay"><div class="spinner"></div><div id="overlayMsg">Loading…</div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* =====================================================================
+   CONFIG & UTILITIES
+   ===================================================================== */
+const CFG = window.APP_CONFIG || {};
+const API = (CFG.API_URL || '').trim();
+const BRAND = CFG.HEADING || "Satyansh's Test Papers";
+const LET = 'ABCDEFGH'.split('');
+const $ = id => document.getElementById(id);
+const LS = {
+  get(k, d){ try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch(e){ return d; } },
+  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} },
+  del(k){ try { localStorage.removeItem(k); } catch(e){} }
+};
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function pad(n){return String(n).padStart(2,'0');}
+function fmt(ms){ms=Math.max(0,Math.round(ms/1000));const h=Math.floor(ms/3600),m=Math.floor(ms%3600/60),s=ms%60;return (h?h+':'+pad(m):pad(m))+':'+pad(s);}
+function fmtLong(ms){const s=Math.max(0,Math.round(ms/1000));const m=Math.floor(s/60),r=s%60;return (m?m+' min ':'')+r+' s';}
+function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active',s.id===id));window.scrollTo(0,0);}
+let toastT=null;
+function toast(msg,ms=3500){const t=$('toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),ms);}
+function busy(on,msg){ $('overlayMsg').textContent=msg||'Loading…'; $('overlay').classList.toggle('open',!!on); }
+function typeset(el,tries=0){
+  if(window.MathJax && MathJax.startup && MathJax.startup.promise && MathJax.typesetPromise){
+    MathJax.startup.promise = MathJax.startup.promise
+      .then(()=>{ if(MathJax.typesetClear) MathJax.typesetClear([el]); return MathJax.typesetPromise([el]); })
+      .catch(()=>{});
+  } else if(tries<80){ setTimeout(()=>typeset(el,tries+1),250); }
+}
+function beforeUnload(e){e.preventDefault();e.returnValue='';return '';}
+
+async function apiGet(params){
+  const u = new URL(API); Object.entries(params).forEach(([k,v])=>u.searchParams.set(k,v)); u.searchParams.set('_', Date.now());
+  const r = await fetch(u.toString(), {method:'GET', redirect:'follow'});
+  const j = await r.json(); if(!j.ok) throw new Error(j.error||'Request failed'); return j;
+}
+async function apiPost(body){
+  const r = await fetch(API, {method:'POST', redirect:'follow', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(body)});
+  const j = await r.json(); if(!j.ok) throw new Error(j.error||'Request failed'); return j;
+}
+
+/* =====================================================================
+   APP STATE
+   ===================================================================== */
+let USER = null;            // {name, phone}
+let ATTEMPTS = {};          // paperId -> {score,maxMarks,time}
+let PAPERS = [];            // list from server
+const PAPER_CACHE = {};     // id -> full paper JSON
+let P = null, ST, SEC, Q, N, DURATION, IDEAL, MAXM, HEAD;   // current paper
+let S = null;               // current attempt state
+let VIEW_ONLY = false;      // viewing a past result
+
+document.querySelectorAll('.js-brand').forEach(e=>e.textContent=BRAND.toUpperCase()+' · MOCK TESTS');
+document.querySelectorAll('.js-brand-plain').forEach(e=>e.textContent=BRAND);
+if(!API) $('cfgErr').style.display='block';
+
+function setUserUI(){
+  document.querySelectorAll('.js-uname').forEach(e=>e.textContent=USER.name);
+  document.querySelectorAll('.js-uphone').forEach(e=>e.textContent='+91 '+USER.phone);
+  document.querySelectorAll('.js-avatar,.js-avatar2').forEach(e=>e.textContent=USER.name.charAt(0).toUpperCase());
+}
+
+/* ---------- pending submissions (offline safety) ---------- */
+function pendingList(){ return LS.get('stp_pending', []); }
+function mergePendingAttempts(){
+  pendingList().filter(p=>p.phone===USER.phone).forEach(p=>{ if(!ATTEMPTS[p.paperId]) ATTEMPTS[p.paperId]={score:p.localScore,maxMarks:p.localMax,pending:true}; });
+}
+async function flushPending(){
+  if(!API) return;
+  let list = pendingList(); if(!list.length) return;
+  const keep=[];
+  for(const item of list){
+    try{ const r = await apiPost(item); if(USER && item.phone===USER.phone) ATTEMPTS[item.paperId]={score:r.score,maxMarks:r.maxMarks}; }
+    catch(e){ keep.push(item); }
+  }
+  LS.set('stp_pending', keep);
+  updateSaveStatus();
+}
+setInterval(()=>{ if(pendingList().length) flushPending(); }, 20000);
+
+/* =====================================================================
+   LOGIN
+   ===================================================================== */
+function normPhone(v){
+  let p=String(v||'').replace(/[\s\-()]/g,'');
+  if(/^\+?91\d{10}$/.test(p)) p=p.slice(-10);
+  if(/^0\d{10}$/.test(p)) p=p.slice(1);
+  return p;
+}
+$('loginForm').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const name=$('cName').value.trim().replace(/\s+/g,' ');
+  const p=normPhone($('cPhone').value);
+  let ok=true;
+  if(name.length<2 || !/[A-Za-zऀ-ॿ]/.test(name)){$('nameErr').textContent='Please enter your full name.';ok=false;} else $('nameErr').textContent='';
+  if(!/^[6-9]\d{9}$/.test(p)){$('phoneErr').textContent='Please enter a valid 10-digit mobile number.';ok=false;} else $('phoneErr').textContent='';
+  if(!ok || !API) return;
+  busy(true,'Signing in…');
+  try{
+    const r = await apiPost({action:'login', name, phone:p});
+    USER={name, phone:p}; LS.set('stp_user', USER);
+    ATTEMPTS={}; (r.attempts||[]).forEach(a=>ATTEMPTS[a.paperId]=a);
+    await afterLogin();
+  }catch(err){ busy(false); $('phoneErr').textContent='Could not connect. Check your internet and try again.'; }
+});
+$('logoutBtn').addEventListener('click',()=>{ LS.del('stp_user'); USER=null; $('cName').value=''; $('cPhone').value=''; show('login'); });
+
+async function afterLogin(){
+  setUserUI(); mergePendingAttempts(); flushPending();
+  // resume an unfinished test after refresh / closing the tab
+  const act = LS.get('stp_active', null);
+  if(act && act.phone===USER.phone){
+    try{ await resumeActive(act); busy(false); return; }catch(e){ LS.del('stp_active'); }
+  }
+  await loadPapers();
+}
+
+/* =====================================================================
+   PAPER LIST
+   ===================================================================== */
+async function loadPapers(){
+  busy(true,'Loading papers…');
+  try{
+    const [pl, at] = await Promise.all([apiGet({action:'papers'}), apiGet({action:'attempts', phone:USER.phone}).catch(()=>null)]);
+    PAPERS = pl.papers||[];
+    if(at){ ATTEMPTS={}; (at.attempts||[]).forEach(a=>ATTEMPTS[a.paperId]=a); }
+    mergePendingAttempts();
+    $('paperMsg').innerHTML='';
+  }catch(e){
+    $('paperMsg').innerHTML=`<div class="msg-box err">Could not load papers. Please check your internet connection. <button class="btn small light" onclick="loadPapers()">Retry</button></div>`;
+  }
+  busy(false);
+  renderPapers(); show('papers');
+}
+function renderPapers(){
+  if(!PAPERS.length){ $('paperGrid').innerHTML='<div class="card empty" style="grid-column:1/-1">No test papers are available right now.</div>'; return; }
+  $('paperGrid').innerHTML = PAPERS.map((p,k)=>{
+    const a = ATTEMPTS[p.id];
+    const foot = a
+      ? `<span class="done-pill">✓ Attempted${a.score!==undefined&&a.score!==null?` · ${a.score}/${a.maxMarks}`:''}</span>
+         <button class="btn small ghost" type="button" data-view="${esc(p.id)}">View Result</button>`
+      : `<span style="color:var(--muted);font-size:13px">Not attempted</span>
+         <button class="btn small green" type="button" data-open="${esc(p.id)}">Start Test →</button>`;
+    return `<div class="card paper-card">
+      <div class="pnum">Paper ${k+1}</div>
+      <h3>${esc(p.name)}</h3>
+      <div class="meta">${[p.exam,p.subject].filter(Boolean).map(x=>`<span>${esc(x)}</span>`).join('')}
+        <span>${p.questions} Questions</span><span>${p.durationMin} min</span><span>${p.maxMarks} Marks</span></div>
+      <div class="foot">${foot}</div></div>`;
+  }).join('');
+}
+$('paperGrid').addEventListener('click', e=>{
+  const o=e.target.closest('[data-open]'); if(o) openPaper(o.dataset.open);
+  const v=e.target.closest('[data-view]'); if(v) viewResult(v.dataset.view);
+});
+async function fetchPaper(id){
+  if(PAPER_CACHE[id]) return PAPER_CACHE[id];
+  const r = await apiGet({action:'paper', id}); PAPER_CACHE[id]=r.paper; return r.paper;
+}
+
+/* =====================================================================
+   LOAD A PAPER
+   ===================================================================== */
+const secOf = id => SEC.find(s => s.id === id) || SEC[0];
+const posMark = q => Number(secOf(q.section).correct);
+const negMark = q => Number(secOf(q.section).wrong);
+const secRange = s => { const idx = Q.map((q, i) => q.section === s.id ? i : -1).filter(i => i >= 0); return idx.length ? [idx[0], idx[idx.length - 1]] : [0, -1]; };
+const markTxt = s => `+${s.correct} for a correct answer, ${Number(s.wrong) < 0 ? '−' + Math.abs(s.wrong) : (Number(s.wrong) > 0 ? '+' + s.wrong : '0')} for an incorrect answer, 0 if unattempted`;
+
+function usePaper(paper){
+  P=paper; ST=paper.settings||{}; SEC=paper.sections||[]; Q=paper.questions; N=Q.length;
+  DURATION=(Number(ST.durationMin)||60)*60000; IDEAL=DURATION/N;
+  MAXM=Q.reduce((s,q)=>s+posMark(q),0);
+  HEAD=BRAND+(ST.exam?' — '+ST.exam:'');
+  document.querySelectorAll('.js-tag').forEach(e=>e.textContent=(BRAND+(ST.exam?' · '+ST.exam:'')).toUpperCase());
+  document.querySelectorAll('.js-head').forEach(e=>e.textContent=ST.paperName||HEAD);
+  document.querySelectorAll('.js-sub').forEach(e=>e.textContent=[ST.exam,ST.subject,N+' Questions','Max. Marks '+MAXM].filter(Boolean).join(' · '));
+  $('solHead').textContent='Solutions — '+(ST.paperName||BRAND);
+}
+function freshState(){
+  return { cur:0, ans:Array(N).fill(null), mark:Array(N).fill(false), visited:Array(N).fill(false), time:Array(N).fill(0),
+           start:0, end:0, last:0, timer:null, submitted:false, auto:false, submitAt:0, warned10:false, warned5:false, R:null, solCur:0 };
+}
+
+async function openPaper(id){
+  if(ATTEMPTS[id]){ toast('You have already attempted this paper.'); return; }
+  busy(true,'Opening paper…');
+  try{
+    const [paper, at] = await Promise.all([fetchPaper(id), apiGet({action:'attempts', phone:USER.phone}).catch(()=>null)]);
+    if(at){ (at.attempts||[]).forEach(a=>ATTEMPTS[a.paperId]=a); }
+    if(ATTEMPTS[id]){ busy(false); renderPapers(); toast('You have already attempted this paper.'); return; }
+    usePaper(paper); VIEW_ONLY=false; S=freshState();
+    renderInstructions(); busy(false); show('instructions');
+  }catch(e){ busy(false); toast('Could not open the paper. Please check your internet and try again.'); }
+}
+
+/* =====================================================================
+   INSTRUCTIONS
+   ===================================================================== */
+function renderInstructions(){
+  $('insName').textContent=USER.name;
+  $('insTitle').textContent=(ST.paperName||'Test')+' — Instructions';
+  $('agree').checked=false; $('startBtn').disabled=true;
+  $('facts').innerHTML=`<div class="fact"><b>${ST.durationMin} min</b><span>Duration</span></div>
+    <div class="fact"><b>${N}</b><span>Questions</span></div>
+    <div class="fact"><b>${MAXM}</b><span>Maximum Marks</span></div>
+    <div class="fact"><b>${SEC.length}</b><span>Section${SEC.length>1?'s':''}</span></div>`;
+  let g=`<li>The paper contains <b>${N} questions</b> in ${SEC.length} section${SEC.length>1?'s':''}. All questions are compulsory.</li>`;
+  SEC.forEach(s=>{const [a,b]=secRange(s);
+    const d=s.type==='mcq'?'Multiple Choice Questions. Each question has options out of which <b>only one</b> is correct.':'Numerical Value questions. Type the answer in the answer box.';
+    g+=`<li><b>${esc(s.title)} (Q. ${a+1} to Q. ${b+1}):</b> ${d} <b>Marking:</b> ${markTxt(s)}.</li>`;});
+  (P.instructions||[]).forEach(t=>{g+=`<li>${t}</li>`;});
+  g+=`<li>The ${ST.durationMin}-minute countdown timer starts as soon as the first question appears. It is shown at the top-right of the screen along with the number of answered and unanswered questions.</li>
+      <li>When the timer reaches 00:00, the test is <b>submitted automatically</b> and your result is shown.</li>
+      <li>The time you spend on each question is recorded and shown in your final report.</li>`;
+  $('genIns').innerHTML=g;
+  const same=SEC.every(s=>s.correct==SEC[0].correct&&s.wrong==SEC[0].wrong);
+  $('tcMarking').innerHTML='I accept the marking scheme'+(same?` (${markTxt(SEC[0])})`:' stated for each section above')+'.';
+  typeset($('genIns'));
+}
+$('agree').addEventListener('change',e=>{$('startBtn').disabled=!e.target.checked;});
+$('backPapers').addEventListener('click',()=>{ renderPapers(); show('papers'); });
+$('startBtn').addEventListener('click',startExam);
+
+/* =====================================================================
+   EXAM
+   ===================================================================== */
+function saveActive(){
+  if(!S || S.submitted || VIEW_ONLY) return;
+  LS.set('stp_active',{phone:USER.phone, name:USER.name, paperId:P.id, ans:S.ans, mark:S.mark, visited:S.visited,
+    time:S.time.map((t,i)=>i===S.cur?t+(Date.now()-S.last):t), cur:S.cur, start:S.start, end:S.end, warned10:S.warned10, warned5:S.warned5});
+}
+function startExam(){
+  if(!$('agree').checked) return;
+  S.start=Date.now(); S.end=S.start+DURATION; S.last=S.start; S.cur=0; S.visited[0]=true;
+  beginExamUI();
+}
+function beginExamUI(){
+  show('exam'); renderAll(); saveActive();
+  window.addEventListener('beforeunload',beforeUnload);
+  clearInterval(S.timer); S.timer=setInterval(tick,250); tick();
+}
+async function resumeActive(act){
+  busy(true,'Resuming your test…');
+  const paper = await fetchPaper(act.paperId);
+  usePaper(paper); VIEW_ONLY=false; S=freshState();
+  Object.assign(S,{ans:act.ans,mark:act.mark,visited:act.visited,time:act.time,cur:act.cur||0,start:act.start,end:act.end,warned10:act.warned10,warned5:act.warned5});
+  S.last=Date.now();
+  if(Date.now()>=S.end){ submitTest(true); toast('Your time ended while you were away. The test was submitted automatically.',6000); return; }
+  beginExamUI(); toast('Your test has been resumed. The timer kept running.',5000);
+}
+function commitTime(){const now=Date.now();S.time[S.cur]+=now-S.last;S.last=now;}
+let saveTick=0;
+function tick(){
+  if(S.submitted) return;
+  const now=Date.now(), rem=Math.max(0,S.end-now);
+  $('timer').textContent=fmt(rem);
+  const tb=$('timerBox');
+  tb.classList.toggle('warn',rem<=10*60000 && rem>5*60000);
+  tb.classList.toggle('danger',rem<=5*60000);
+  if(DURATION>15*60000 && !S.warned10 && rem<=10*60000 && rem>5*60000){S.warned10=true;toast('⏰ 10 minutes remaining');}
+  if(DURATION>7*60000 && !S.warned5 && rem<=5*60000){S.warned5=true;toast('⏰ Only 5 minutes left! The test will auto-submit at 00:00.');}
+  $('qTime').textContent=fmt(S.time[S.cur]+now-S.last);
+  if($('summaryModal').classList.contains('open')) $('sumTime').textContent=fmt(rem);
+  if(++saveTick%20===0) saveActive();
+  if(rem<=0) submitTest(true);
+}
+function goTo(i){ if(S.submitted||i<0||i>=N) return; commitTime(); S.cur=i; S.visited[i]=true; renderAll(); saveActive(); }
+function status(i){const a=S.ans[i]!==null,m=S.mark[i];if(a&&m)return'am';if(m)return'mr';if(a)return'an';if(S.visited[i])return'na';return'nv';}
+function counts(filter){
+  const c={an:0,na:0,mr:0,am:0,nv:0,answered:0,marked:0,total:0};
+  for(let i=0;i<N;i++){ if(filter && Q[i].section!==filter) continue; c.total++; c[status(i)]++; if(S.ans[i]!==null)c.answered++; if(S.mark[i])c.marked++;}
+  return c;
+}
+function renderAll(){renderQuestion();renderPalette();renderStats();}
+function renderQuestion(){
+  const i=S.cur,q=Q[i],s=secOf(q.section);
+  $('qMeta').innerHTML=`<span class="q-no">Question ${i+1}</span>
+    <span class="pill">${esc(s.title)} · ${s.type==='mcq'?'MCQ':'Numerical Value'}</span>
+    <span class="pill mk">+${s.correct} / ${Number(s.wrong)<0?'−'+Math.abs(s.wrong):s.wrong}</span>${S.mark[i]?'<span class="pill rv">★ Marked for Review</span>':''}`;
+  let h=`<div class="q-text">${q.q}</div>`;
+  if(q.type==='mcq'){
+    h+='<div class="opts">'+q.opts.map((o,k)=>`<button type="button" class="opt${S.ans[i]===k?' sel':''}" data-k="${k}"><span class="ol">${LET[k]}</span><span class="ot">${o}</span></button>`).join('')+'</div>';
+  }else{
+    h+=`<div class="num"><label for="numIn">Your answer (numerical value):</label>
+      <input id="numIn" type="text" inputmode="decimal" autocomplete="off" maxlength="12" placeholder="Type your answer here" value="${S.ans[i]===null?'':esc(S.ans[i])}">
+      <div class="num-hint" id="numHint">Enter a number. Your answer is saved automatically as you type.</div></div>`;
+  }
+  const body=$('qBody'); body.innerHTML=h;
+  if(q.type==='mcq'){
+    body.querySelectorAll('.opt').forEach(b=>b.addEventListener('click',()=>{
+      S.ans[i]=+b.dataset.k;
+      body.querySelectorAll('.opt').forEach(x=>x.classList.toggle('sel',x===b));
+      renderPalette();renderStats();saveActive();
+    }));
+  }else{
+    const inp=$('numIn'),hint=$('numHint');
+    inp.addEventListener('input',()=>{
+      const v=inp.value.trim();
+      if(v===''){S.ans[i]=null;hint.textContent='Enter a number. Your answer is saved automatically as you type.';hint.classList.remove('bad');}
+      else if(/^-?\d+(\.\d+)?$/.test(v)){S.ans[i]=v;hint.textContent='✓ Answer saved: '+v;hint.classList.remove('bad');}
+      else{S.ans[i]=null;hint.textContent='Only numbers are allowed (e.g. 12, -3 or 2.5). This response is not saved.';hint.classList.add('bad');}
+      renderPalette();renderStats();saveActive();
+    });
+    inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('nextBtn').click();}});
+    setTimeout(()=>inp.focus({preventScroll:true}),50);
+  }
+  $('prevBtn').disabled=i===0;
+  $('markBtn').textContent=(S.mark[i]?'Unmark Review':'Mark for Review')+(i===N-1?'':' & Next');
+  $('nextBtn').textContent=i===N-1?'Save & View Summary':'Save & Next →';
+  $('qTime').textContent=fmt(S.time[i]);
+  typeset(body);
+}
+function palHTML(cls){
+  return SEC.map(s=>{const [a,b]=secRange(s);let chips='';
+    for(let i=a;i<=b;i++) chips+=`<button type="button" class="chip ${cls(i)}" data-i="${i}" title="Question ${i+1}">${i+1}</button>`;
+    return `<div class="pal-sec">${esc(s.title)} (Q${a+1}–Q${b+1})</div><div class="palette">${chips}</div>`;}).join('');
+}
+function renderPalette(){
+  $('palWrap').innerHTML=palHTML(i=>status(i)+(i===S.cur?' cur':''));
+  const c=counts();
+  $('legend').innerHTML=`<div><span class="chip small nv">${c.nv}</span>Not Visited</div>
+    <div><span class="chip small na">${c.na}</span>Not Answered</div>
+    <div><span class="chip small an">${c.an}</span>Answered</div>
+    <div><span class="chip small mr">${c.mr}</span>Marked for Review</div>
+    <div style="grid-column:1/-1"><span class="chip small am">${c.am}</span>Answered &amp; Marked for Review (will be evaluated)</div>`;
+}
+document.addEventListener('click',e=>{
+  const c=e.target.closest('#palWrap .chip'); if(c) goTo(+c.dataset.i);
+  const s=e.target.closest('#sPalWrap .chip'); if(s) renderSol(+s.dataset.i);
+});
+function renderStats(){const c=counts();$('cAns').textContent=c.answered;$('cUn').textContent=N-c.answered;$('cMr').textContent=c.marked;}
+$('prevBtn').addEventListener('click',()=>goTo(S.cur-1));
+$('nextBtn').addEventListener('click',()=>{ if(S.cur===N-1) openSummary(); else goTo(S.cur+1); });
+$('markBtn').addEventListener('click',()=>{
+  S.mark[S.cur]=!S.mark[S.cur];
+  if(S.cur===N-1){renderAll();saveActive();openSummary();} else goTo(S.cur+1);
+});
+$('clearBtn').addEventListener('click',()=>{S.ans[S.cur]=null;renderAll();saveActive();});
+$('submitBtn').addEventListener('click',openSummary);
+
+/* ---------- Summary ---------- */
+function openSummary(){
+  if(S.submitted) return;
+  const rows=SEC.map(s=>[s.title,counts(s.id)]);
+  if(SEC.length>1) rows.push(['Total',counts()]);
+  let t=`<table class="tbl"><thead><tr><th class="l">Section</th><th>Total</th><th>Answered</th><th>Not Answered</th><th>Marked for Review</th><th>Answered &amp; Marked</th><th>Not Visited</th></tr></thead><tbody>`;
+  rows.forEach(([n,c],k)=>{t+=`<tr${SEC.length>1&&k===rows.length-1?' class="total"':''}><td class="l">${esc(n)}</td><td>${c.total}</td><td>${c.an}</td><td>${c.na}</td><td>${c.mr}</td><td>${c.am}</td><td>${c.nv}</td></tr>`;});
+  t+='</tbody></table>';
+  $('sumTable').innerHTML=t;
+  const tot=counts();
+  let note=`<b>Questions answered: ${tot.answered} / ${N}</b> &nbsp;·&nbsp; Unanswered: ${N-tot.answered} &nbsp;·&nbsp; Marked for review: ${tot.marked}.`;
+  if(tot.mr>0) note+=` <br>${tot.mr} question(s) are marked for review <b>without an answer</b> and will not be evaluated.`;
+  note+=' <br>Answered &amp; Marked for Review questions will be evaluated. After Final Submit you cannot change any response.';
+  $('sumNote').innerHTML=note;
+  $('sumTime').textContent=fmt(S.end-Date.now());
+  $('summaryModal').classList.add('open');
+}
+function closeModal(){$('summaryModal').classList.remove('open');}
+$('sumBack').addEventListener('click',closeModal);
+$('finalSubmit').addEventListener('click',()=>submitTest(false));
+
+/* =====================================================================
+   SUBMIT & EVALUATE
+   ===================================================================== */
+function respText(i){const a=S.ans[i];if(a===null||a===undefined||a==='')return'—';return Q[i].type==='mcq'?LET[a]:a;}
+function correctText(i){return Q[i].type==='mcq'?LET[Q[i].ans]:String(Q[i].ans);}
+function isCorrect(q,a){
+  if(q.type==='mcq') return Number(a)===Number(q.ans);
+  const v=parseFloat(a), tol=(q.tol!=null?Number(q.tol):0.001);
+  return !isNaN(v) && Math.abs(v-Number(q.ans))<=tol+1e-9;
+}
+function evaluate(){
+  S.R=Q.map((q,i)=>{
+    const a=S.ans[i];
+    if(a===null||a===undefined||a==='') return {i,res:'u',marks:0};
+    const ok=isCorrect(q,a);
+    return {i,res:ok?'c':'w',marks:ok?posMark(q):negMark(q)};
+  });
+}
+function topicLists(){
+  const uniq=a=>[...new Set(a)].filter(Boolean);
+  const cR=S.R.filter(r=>r.res==='c'), wR=S.R.filter(r=>r.res==='w');
+  const wrongCh=uniq(wR.map(r=>Q[r.i].topic));
+  const skipCh=uniq(S.R.filter(r=>r.res==='u').map(r=>Q[r.i].topic)).filter(t=>!wrongCh.includes(t));
+  const slowCh=uniq(cR.filter(r=>S.time[r.i]>IDEAL*1.25).map(r=>Q[r.i].topic));
+  const strongCh=uniq(cR.filter(r=>S.time[r.i]<=IDEAL*1.25).map(r=>Q[r.i].topic)).filter(t=>!wrongCh.includes(t));
+  return {wrongCh,skipCh,slowCh,strongCh};
+}
+let SAVE_STATE='';   // '', 'saving', 'ok', 'bad'
+function submitTest(auto){
+  if(S.submitted) return;
+  commitTime();
+  S.submitted=true; S.auto=auto; S.submitAt=Date.now();
+  clearInterval(S.timer);
+  window.removeEventListener('beforeunload',beforeUnload);
+  closeModal();
+  evaluate();
+  const score=S.R.reduce((s,r)=>s+r.marks,0);
+  const tl=topicLists();
+  const item={action:'submit', phone:USER.phone, name:USER.name, paperId:P.id, paperName:ST.paperName||'',
+    ans:S.ans, mark:S.mark, time:S.time.map(t=>Math.round(t)), auto, start:S.start, submitAt:S.submitAt,
+    taken:Math.min(S.submitAt-S.start,DURATION), strong:tl.strongCh.join(', '), weak:tl.wrongCh.concat(tl.skipCh).join(', '),
+    localScore:score, localMax:MAXM};
+  const list=pendingList(); list.push(item); LS.set('stp_pending',list);
+  LS.del('stp_active');
+  ATTEMPTS[P.id]={score,maxMarks:MAXM,pending:true};
+  VIEW_ONLY=false; SAVE_STATE='saving';
+  renderReport(); show('result');
+  if(auto) toast('⏰ Time is up! Your test was submitted automatically.',5000);
+  flushPending();
+}
+function updateSaveStatus(){
+  const el=document.getElementById('saveStatus'); if(!el || VIEW_ONLY) return;
+  const pend = P && pendingList().some(p=>p.phone===USER.phone && p.paperId===P.id);
+  if(pend){ el.className='save-status bad'; el.textContent='⏳ Saving your result… (will retry automatically — please keep internet on)'; }
+  else { el.className='save-status ok'; el.textContent='✓ Result saved'; }
+}
+
+/* ---------- view a past result ---------- */
+async function viewResult(id){
+  busy(true,'Loading your result…');
+  try{
+    const paper = await fetchPaper(id);
+    let d=null;
+    const pend = pendingList().find(p=>p.phone===USER.phone && p.paperId===id);
+    if(pend) d={ans:pend.ans,mark:pend.mark,time:pend.time,auto:pend.auto,start:pend.start,submitAt:pend.submitAt,taken:pend.taken};
+    else d=(await apiGet({action:'attempt', phone:USER.phone, paperId:id})).attempt;
+    usePaper(paper); S=freshState();
+    S.ans=(d.ans||[]).slice(0,N); while(S.ans.length<N) S.ans.push(null);
+    S.mark=(d.mark||[]).slice(0,N); S.time=(d.time||[]).map(Number); while(S.time.length<N) S.time.push(0);
+    S.auto=!!d.auto; S.submitted=true; S.start=Number(d.start)||0; S.submitAt=Number(d.submitAt)||Date.now();
+    if(!S.start) S.start=S.submitAt-(Number(d.taken)||0);
+    evaluate(); VIEW_ONLY=!pend; renderReport(); busy(false); show('result');
+  }catch(e){ busy(false); toast('Could not load the result. Please try again.'); }
+}
+
+/* =====================================================================
+   REPORT
+   ===================================================================== */
+function renderReport(){
+  const R=S.R;
+  const score=R.reduce((s,r)=>s+r.marks,0);
+  const nc=R.filter(r=>r.res==='c').length, nw=R.filter(r=>r.res==='w').length, nu=R.filter(r=>r.res==='u').length;
+  const att=nc+nw, acc=att?Math.round(nc/att*100):0;
+  const taken=Math.min(S.submitAt-S.start,DURATION);
+  const dt=new Date(S.submitAt).toLocaleString('en-IN',{dateStyle:'medium',timeStyle:'short'});
+  const avg=arr=>arr.length?arr.reduce((s,r)=>s+S.time[r.i],0)/arr.length:0;
+  const cR=R.filter(r=>r.res==='c'), wR=R.filter(r=>r.res==='w');
+  const pctScore=MAXM?score/MAXM*100:0;
+  const lost=wR.reduce((s,r)=>s-r.marks,0);
+
+  let remark;
+  if(pctScore>=80) remark='Excellent performance! You have a strong command over this paper. Keep practising at this level and focus on speed.';
+  else if(pctScore>=60) remark='Good performance. A few concept gaps remain — fix the topics listed under "Needs Work" to push your score higher.';
+  else if(pctScore>=40) remark='Average performance. Revise the weak topics below and practise more questions of similar difficulty.';
+  else if(pctScore>=20) remark='Needs improvement. Go back to the fundamentals of the weak topics and practise them topic-wise before the next full test.';
+  else remark='This paper was challenging for you. Start with concept revision of the topics below, then attempt topic-wise practice sets.';
+
+  const secRow=s=>{
+    const rr=R.filter(r=>Q[r.i].section===s.id);const c=rr.filter(r=>r.res==='c').length,w=rr.filter(r=>r.res==='w').length,u=rr.filter(r=>r.res==='u').length;
+    const m=rr.reduce((x,r)=>x+r.marks,0);const t=rr.reduce((x,r)=>x+S.time[r.i],0);const mx=rr.reduce((x,r)=>x+posMark(Q[r.i]),0);
+    return `<tr><td class="l">${esc(s.title)}</td><td>${rr.length}</td><td class="res-c">${c}</td><td class="res-w">${w}</td><td>${u}</td><td><b>${m}</b> / ${mx}</td><td>${fmt(t)}</td></tr>`;
+  };
+  let qt='';
+  R.forEach(r=>{
+    const q=Q[r.i];
+    const rs=r.res==='c'?'<span class="res-c">✔ Correct</span>':r.res==='w'?'<span class="res-w">✘ Incorrect</span>':'<span class="res-u">— Not Attempted</span>';
+    qt+=`<tr><td><b>${r.i+1}</b></td><td>${esc(q.section)}</td><td class="l">${esc(q.topic||'—')}</td><td><b>${esc(respText(r.i))}</b></td><td>${rs}</td><td><b>${r.marks>0?'+':''}${r.marks}</b></td><td>${fmt(S.time[r.i])}${S.mark[r.i]?' ★':''}</td></tr>`;
+  });
+  const maxT=Math.max(IDEAL*1.2,...S.time);
+  let bars='';
+  R.forEach(r=>{
+    const w=S.time[r.i]/maxT*100, idealPos=IDEAL/maxT*100;
+    bars+=`<div class="bar-row"><span class="bq">Q${r.i+1}</span><div class="bar-track"><div class="bar-fill ${r.res}" style="width:${Math.max(w,S.time[r.i]>0?1:0)}%"></div><div class="bar-ideal" style="left:${idealPos}%"></div></div><span class="bt">${fmt(S.time[r.i])}</span></div>`;
+  });
+  const mxT=Math.max(...S.time); const slow=S.time.indexOf(mxT);
+
+  const areas={};
+  R.forEach(r=>{const a=Q[r.i].area||Q[r.i].topic||'General';areas[a]=areas[a]||{n:0,c:0,w:0,u:0,m:0,mx:0,t:0,qs:[]};const A=areas[a];A.n++;A[r.res]++;A.m+=r.marks;A.mx+=posMark(Q[r.i]);A.t+=S.time[r.i];A.qs.push(r.i+1);});
+  const tagOf=A=>{ if(A.c+A.w===0) return ['none','Not Attempted']; const p=A.c/A.n;
+    if(p>=0.75) return ['strong','Strong']; if(p>=0.4 && A.c>=A.w) return ['mod','Moderate']; return ['weak','Weak']; };
+  let at='';const strongA=[],weakA=[],modA=[],noneA=[];
+  Object.entries(areas).sort((x,y)=>(y[1].c/y[1].n)-(x[1].c/x[1].n)).forEach(([name,A])=>{
+    const [cls,lbl]=tagOf(A);
+    ({strong:strongA,weak:weakA,mod:modA,none:noneA})[cls].push(name);
+    const accA=A.c+A.w?Math.round(A.c/(A.c+A.w)*100)+'%':'—';
+    at+=`<tr><td class="l"><b>${esc(name)}</b><br><span style="font-size:12px;color:var(--muted)">Q ${A.qs.join(', ')}</span></td><td>${A.n}</td><td class="res-c">${A.c}</td><td class="res-w">${A.w}</td><td>${A.u}</td><td>${accA}</td><td><b>${A.m}</b> / ${A.mx}</td><td>${fmt(A.t)}</td><td><span class="tag ${cls}">${lbl}</span></td></tr>`;
+  });
+  const {wrongCh,skipCh,slowCh,strongCh}=topicLists();
+  const uniq=a=>[...new Set(a)].filter(Boolean);
+  const li=a=>a.length?'<ul>'+a.map(x=>`<li>${esc(x)}</li>`).join('')+'</ul>':'<p class="empty" style="padding:0;text-align:left">None in this test.</p>';
+  let plan='';
+  if(wrongCh.length) plan+=`<li><b>Priority 1 — Fix concept errors:</b> ${wrongCh.map(esc).join(', ')}. Re-learn the core idea, then solve 15–20 questions of each.</li>`;
+  if(skipCh.length) plan+=`<li><b>Priority 2 — Build coverage:</b> ${skipCh.map(esc).join(', ')}. These were left unattempted; practise them topic-wise.</li>`;
+  if(slowCh.length) plan+=`<li><b>Priority 3 — Improve speed:</b> ${slowCh.map(esc).join(', ')}. You got these right but took longer than the ideal pace.</li>`;
+  if(!plan) plan='<li>Outstanding — no weak areas in this paper. Keep taking full-length timed tests to maintain accuracy and speed.</li>';
+  const ins=[];
+  if(nw && lost>0) ins.push(`You lost <b>${lost} mark${lost>1?'s':''}</b> to negative marking (${nw} incorrect answer${nw>1?'s':''}). Answer only when you are reasonably sure.`);
+  const mrUn=R.filter(r=>S.mark[r.i]&&r.res==='u').length;
+  if(mrUn) ins.push(`<b>${mrUn}</b> question(s) were marked for review but left unanswered — remember to revisit marked questions before submitting.`);
+  if(cR.length) ins.push(`Average time on correctly answered questions: <b>${fmtLong(avg(cR))}</b>.`);
+  if(wR.length) ins.push(`Average time on incorrectly answered questions: <b>${fmtLong(avg(wR))}</b>.`);
+  const over=R.filter(r=>S.time[r.i]>IDEAL*1.5).length;
+  if(over) ins.push(`<b>${over}</b> question(s) took more than 1.5× the ideal time (${fmt(IDEAL)}). Learn to skip and return to time-consuming questions.`);
+  if(S.auto) ins.push(`The test was <b>auto-submitted</b> when time ran out. Practise managing your time so you can review your answers before the end.`);
+  else if(DURATION-taken>DURATION/4 && nu>N/5) ins.push(`You submitted with <b>${fmt(DURATION-taken)}</b> left but ${nu} questions unattempted. Use the remaining time to attempt more questions.`);
+
+  $('reportWrap').innerHTML=`
+  <div class="noprint" style="margin-bottom:14px"><button class="btn light small" type="button" onclick="backToPapers()">← All Papers</button></div>
+  <div class="rep-top">
+    <h1>Performance Report</h1>
+    <div style="opacity:.9">${esc([ST.paperName, HEAD, ST.subject].filter(Boolean).join(' · '))}</div>
+    <div class="who">
+      <div><span class="lbl">Candidate Name</span><b>${esc(USER.name)}</b></div>
+      <div><span class="lbl">Contact Number</span><b>+91 ${esc(USER.phone)}</b></div>
+      <div><span class="lbl">Submitted On</span><b>${dt}</b></div>
+    </div>
+    ${S.auto?'<span class="auto-flag">⏰ Auto-submitted — time limit reached</span>':''}
+    ${VIEW_ONLY?'':'<span class="save-status noprint" id="saveStatus"></span>'}
+  </div>
+  <div class="kpis">
+    <div class="card kpi main"><b>${score}</b><span>Score out of ${MAXM}</span></div>
+    <div class="card kpi"><b class="c">${nc}</b><span>Correct</span></div>
+    <div class="card kpi"><b class="w">${nw}</b><span>Incorrect</span></div>
+    <div class="card kpi"><b class="u">${nu}</b><span>Not Attempted</span></div>
+    <div class="card kpi"><b>${acc}%</b><span>Accuracy</span></div>
+    <div class="card kpi"><b>${fmt(taken)}</b><span>Time Taken (of ${fmt(DURATION)})</span></div>
+  </div>
+  <div class="card sec"><h2>Overall Feedback</h2><div class="remark">${remark}</div></div>
+  <div class="card sec">
+    <h2>Section-wise Performance</h2>
+    <div class="tbl-wrap"><table class="tbl"><thead><tr><th class="l">Section</th><th>Questions</th><th>Correct</th><th>Incorrect</th><th>Not Attempted</th><th>Marks</th><th>Time Spent</th></tr></thead>
+    <tbody>${SEC.map(secRow).join('')}</tbody></table></div>
+  </div>
+  <div class="card sec">
+    <h2>Question-wise Summary</h2>
+    <p class="hint">Your response, result, marks and time spent on each question. ★ = marked for review.</p>
+    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Q</th><th>Sec</th><th class="l">Topic</th><th>Your Response</th><th>Result</th><th>Marks</th><th>Time Spent</th></tr></thead><tbody>${qt}</tbody></table></div>
+  </div>
+  <div class="card sec">
+    <h2>Time Analysis</h2>
+    <p class="hint">Time invested on every question. The dark line on each bar marks the ideal pace of ${fmt(IDEAL)} per question (${ST.durationMin} min ÷ ${N}).</p>
+    <div class="mini-kpis">
+      <div><b>${fmt(taken)}</b><span>Total time used</span></div>
+      <div><b>${fmt(taken/N)}</b><span>Average per question</span></div>
+      <div><b>${cR.length?fmt(avg(cR)):'—'}</b><span>Avg. on correct answers</span></div>
+      <div><b>${wR.length?fmt(avg(wR)):'—'}</b><span>Avg. on incorrect answers</span></div>
+      <div><b>Q${slow+1} · ${fmt(mxT)}</b><span>Longest time on a question</span></div>
+    </div>
+    <div class="bars">${bars}</div>
+    <div class="bar-legend"><span><i style="background:var(--an)"></i>Correct</span><span><i style="background:var(--na)"></i>Incorrect</span><span><i style="background:#a7afbd"></i>Not attempted</span><span><i style="background:#1c2333;width:3px"></i>Ideal pace</span></div>
+  </div>
+  <div class="card sec">
+    <h2>Topic-wise Analysis</h2>
+    <p class="hint">Strong = ≥75% of questions correct · Moderate = 40–74% · Weak = below 40% or more wrong than right.</p>
+    <div class="tbl-wrap"><table class="tbl"><thead><tr><th class="l">Topic Area</th><th>Qs</th><th>Correct</th><th>Incorrect</th><th>Skipped</th><th>Accuracy</th><th>Marks</th><th>Time</th><th>Status</th></tr></thead><tbody>${at}</tbody></table></div>
+  </div>
+  <div class="card sec">
+    <h2>Strengths, Weaknesses &amp; Focus Plan</h2>
+    <div class="cols3" style="margin-top:12px">
+      <div class="box good"><h3>💪 Strong Topics</h3>
+        ${strongA.length?'<p style="margin:0 0 6px"><b>Areas:</b> '+strongA.map(esc).join(', ')+'</p>':''}
+        ${li(strongCh)}</div>
+      <div class="box bad"><h3>⚠️ Weak Topics — Needs Work</h3>
+        ${(weakA.length||noneA.length)?'<p style="margin:0 0 6px"><b>Areas:</b> '+[...weakA,...noneA].map(esc).join(', ')+'</p>':''}
+        ${li(uniq([...wrongCh,...skipCh]))}</div>
+      <div class="box plan"><h3>🎯 What to Focus On</h3><ul>${plan}</ul></div>
+    </div>
+    ${modA.length?`<p style="margin:14px 0 0"><span class="tag mod">Moderate</span> &nbsp;${modA.map(esc).join(', ')} — decent, but more practice will make these strong.</p>`:''}
+  </div>
+  ${ins.length?`<div class="card sec"><h2>Key Insights</h2><ul class="insights">${ins.map(x=>`<li>${x}</li>`).join('')}</ul></div>`:''}
+  <div class="rep-actions noprint">
+    <button class="btn" type="button" onclick="openSolutions()">📘 View Solutions</button>
+    <button class="btn ghost" type="button" onclick="window.print()">🖨️ Print / Save Report as PDF</button>
+    <button class="btn light" type="button" onclick="backToPapers()">← All Papers</button>
+  </div>`;
+  updateSaveStatus();
+}
+function backToPapers(){ renderPapers(); show('papers'); loadPapers(); }
+
+/* =====================================================================
+   SOLUTIONS
+   ===================================================================== */
+function openSolutions(){
+  $('solWho').textContent=USER.name+' · +91 '+USER.phone;
+  $('sPalWrap').innerHTML=palHTML(i=>'r'+S.R[i].res);
+  show('solutions');
+  renderSol(S.solCur||0);
+}
+function renderSol(i){
+  if(i<0||i>=N) return;
+  S.solCur=i;
+  const q=Q[i], r=S.R[i], s=secOf(q.section);
+  document.querySelectorAll('#sPalWrap .chip').forEach(c=>c.classList.toggle('cur',+c.dataset.i===i));
+  const resTxt=r.res==='c'?'<span class="res-c">✔ Correct</span>':r.res==='w'?'<span class="res-w">✘ Incorrect</span>':'<span class="res-u">— Not Attempted</span>';
+  $('sMeta').innerHTML=`<span class="q-no">Question ${i+1}</span><span class="pill">${esc(s.title)}</span>${q.topic?`<span class="pill">${esc(q.topic)}</span>`:''}`;
+  $('sTime').innerHTML=`Your time: <b>${fmt(S.time[i])}</b>`;
+  let h=`<div class="q-text">${q.q}</div>`;
+  if(q.type==='mcq'){
+    q.opts.forEach((o,k)=>{
+      const isC=k===Number(q.ans), isU=S.ans[i]!==null&&Number(S.ans[i])===k;
+      const cls=isC?' correct':(isU?' wrong':'');
+      let badges='';
+      if(isC) badges+='<span class="badge c">Correct Answer</span>';
+      if(isU) badges+=`<span class="badge ${isC?'c':'w'}" style="margin-left:6px">Your Answer</span>`;
+      h+=`<div class="sol-opt${cls}"><span class="ol">${LET[k]}</span><span class="ot">${o}</span>${badges}</div>`;
+    });
+  }
+  h+=`<div class="ans-strip">
+      <div><span>Your Response</span><b>${esc(respText(i))}</b></div>
+      <div><span>Correct Answer</span><b class="res-c">${esc(correctText(i))}</b></div>
+      <div><span>Result</span><b>${resTxt}</b></div>
+      <div><span>Marks</span><b>${r.marks>0?'+':''}${r.marks}</b></div>
+      <div><span>Time Spent</span><b>${fmt(S.time[i])}</b></div>
+    </div>
+    <div class="sol-box"><h3>Detailed Solution</h3><div class="st">${q.sol||'<i>Solution not provided.</i>'}</div>
+    <p style="margin:12px 0 0;font-weight:700">Answer: ${q.type==='mcq'?'('+correctText(i)+')':esc(correctText(i))}</p></div>`;
+  const body=$('sBody'); body.innerHTML=h;
+  $('sPrev').disabled=i===0;
+  $('sNext').disabled=i===N-1;
+  typeset(body); typeset($('sMeta'));
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+$('sPrev').addEventListener('click',()=>renderSol(S.solCur-1));
+$('sNext').addEventListener('click',()=>renderSol(S.solCur+1));
+$('backReport').addEventListener('click',()=>show('result'));
+
+/* =====================================================================
+   START-UP: remember the logged-in student on this device
+   ===================================================================== */
+(async function boot(){
+  const u = LS.get('stp_user', null);
+  if(API && u && u.phone && u.name){
+    USER=u; $('cName').value=u.name; $('cPhone').value=u.phone;
+    try{ await afterLogin(); }catch(e){ busy(false); show('login'); }
+  }
+})();
+</script>
+</body>
+</html>

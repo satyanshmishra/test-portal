@@ -6,6 +6,7 @@
 <title>Satyansh's Test Papers — Online Mock Tests</title>
 <link rel="stylesheet" href="assets/app.css">
 <script src="config.js"></script>
+<script src="assets/supabase.js"></script>
 <script>
 window.MathJax = {
   tex: { inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']] },
@@ -18,43 +19,112 @@ window.MathJax = {
 </head>
 <body>
 
-<!-- ================= LOGIN ================= -->
+<!-- ================= LOGIN / ACCOUNT ================= -->
 <section id="login" class="screen active">
   <div class="wrap">
-    <form class="card login-card" id="loginForm" novalidate>
+    <div class="card login-card">
       <span class="paper-tag js-brand"></span>
-      <h1>Candidate Login</h1>
-      <p class="sub">Enter your details to see your mock tests.</p>
       <div class="msg-box err" id="cfgErr" style="display:none">The test server is not connected yet. Please try again later.</div>
-      <div class="field">
-        <label for="cName">Full Name</label>
-        <input id="cName" type="text" autocomplete="name" placeholder="Enter your full name" maxlength="60">
-        <div class="err" id="nameErr"></div>
+      <div id="authMsg"></div>
+
+      <!-- Log in -->
+      <form class="aview" id="vLogin" novalidate>
+        <h1>Student Login</h1>
+        <p class="sub">Use the same email and password as the Doubt Portal.</p>
+        <div class="field"><label for="lEmail">Email</label>
+          <input id="lEmail" type="email" autocomplete="email" placeholder="you@example.com" maxlength="120"></div>
+        <div class="field"><label for="lPass">Password</label>
+          <input id="lPass" type="password" autocomplete="current-password" placeholder="Your password" maxlength="72">
+          <div class="err" id="lErr"></div></div>
+        <button class="btn" type="submit">Log in →</button>
+        <p class="alinks"><button type="button" class="linkbtn" data-av="vForgot">Forgot password?</button></p>
+        <p class="alinks">New here? <button type="button" class="linkbtn" data-av="vSignup">Create an account</button></p>
+      </form>
+
+      <!-- Sign up -->
+      <form class="aview" id="vSignup" novalidate hidden>
+        <h1>Create Account</h1>
+        <p class="sub">One account works for both the Test Portal and the Doubt Portal.</p>
+        <div class="field"><label for="sName">Full Name</label>
+          <input id="sName" type="text" autocomplete="name" placeholder="Enter your full name" maxlength="60"></div>
+        <div class="field"><label for="sPhone">Mobile Number</label>
+          <input id="sPhone" type="tel" inputmode="numeric" autocomplete="tel" placeholder="10-digit mobile number" maxlength="15">
+          <small class="fhint">Use the same number you used for earlier tests, so your old results appear in your account.</small></div>
+        <div class="field"><label for="sEmail">Email</label>
+          <input id="sEmail" type="email" autocomplete="email" placeholder="you@example.com" maxlength="120"></div>
+        <div class="field"><label for="sPass">Password</label>
+          <input id="sPass" type="password" autocomplete="new-password" placeholder="At least 6 characters" maxlength="72"></div>
+        <div class="field"><label for="sPass2">Confirm Password</label>
+          <input id="sPass2" type="password" autocomplete="new-password" placeholder="Type the password again" maxlength="72">
+          <div class="err" id="sErr"></div></div>
+        <button class="btn" type="submit">Create Account →</button>
+        <p class="alinks">Already have an account? <button type="button" class="linkbtn" data-av="vLogin">Log in</button></p>
+      </form>
+
+      <!-- Check your email -->
+      <div class="aview" id="vCheck" hidden>
+        <h1>Confirm Your Email</h1>
+        <p class="sub">We have sent a confirmation link to <b id="ckEmail"></b>. Open that email and click the link to activate your account. Then you can log in.</p>
+        <div class="resume-note">Can't find it? Check the <b>Spam</b> or <b>Promotions</b> folder. The email comes from Satyansh Mishra.</div>
+        <button class="btn light" type="button" id="resendBtn">Resend confirmation email</button>
+        <p class="alinks"><button type="button" class="linkbtn" data-av="vLogin">← Back to login</button></p>
       </div>
-      <div class="field">
-        <label for="cPhone">Contact Number</label>
-        <input id="cPhone" type="tel" inputmode="numeric" autocomplete="tel" placeholder="10-digit mobile number" maxlength="15">
-        <div class="err" id="phoneErr"></div>
-      </div>
-      <button class="btn" type="submit" id="loginBtn">Continue →</button>
-    </form>
+
+      <!-- Forgot password -->
+      <form class="aview" id="vForgot" novalidate hidden>
+        <h1>Reset Password</h1>
+        <p class="sub">Enter your account email. We will send you a link to set a new password.</p>
+        <div class="field"><label for="fEmail">Email</label>
+          <input id="fEmail" type="email" autocomplete="email" placeholder="you@example.com" maxlength="120">
+          <div class="err" id="fErr"></div></div>
+        <button class="btn" type="submit">Send Reset Link</button>
+        <p class="alinks"><button type="button" class="linkbtn" data-av="vLogin">← Back to login</button></p>
+      </form>
+
+      <!-- Set new password (after clicking the reset link) -->
+      <form class="aview" id="vReset" novalidate hidden>
+        <h1>Set a New Password</h1>
+        <p class="sub">Choose a new password for <b class="js-uemail"></b>.</p>
+        <div class="field"><label for="rPass">New Password</label>
+          <input id="rPass" type="password" autocomplete="new-password" placeholder="At least 6 characters" maxlength="72"></div>
+        <div class="field"><label for="rPass2">Confirm New Password</label>
+          <input id="rPass2" type="password" autocomplete="new-password" placeholder="Type the password again" maxlength="72">
+          <div class="err" id="rErr"></div></div>
+        <button class="btn" type="submit">Save New Password</button>
+      </form>
+
+      <!-- Complete profile (accounts made on the Doubt Portal have no name / phone yet) -->
+      <form class="aview" id="vProfile" novalidate hidden>
+        <h1>Complete Your Profile</h1>
+        <p class="sub">Logged in as <b class="js-uemail"></b>. Your name is printed on your test reports.</p>
+        <div class="field"><label for="pName">Full Name</label>
+          <input id="pName" type="text" autocomplete="name" placeholder="Enter your full name" maxlength="60"></div>
+        <div class="field"><label for="pPhone">Mobile Number</label>
+          <input id="pPhone" type="tel" inputmode="numeric" autocomplete="tel" placeholder="10-digit mobile number" maxlength="15">
+          <small class="fhint">Use the same number you used for earlier tests, so your old results appear in your account.</small>
+          <div class="err" id="pErr"></div></div>
+        <button class="btn" type="submit">Save &amp; Continue →</button>
+        <p class="alinks"><button type="button" class="linkbtn" id="pLogout">Log out</button></p>
+      </form>
+    </div>
   </div>
 </section>
 
-<!-- ================= PAPER LIST ================= -->
+<!-- ================= FOLDERS & PAPER LIST ================= -->
 <section id="papers" class="screen">
   <header class="topbar appbar">
     <div class="topbar-in">
       <div class="tb-left"><div class="t1 js-brand-plain"></div><div class="t2">Online Mock Tests</div></div>
       <div class="user-box">
         <div class="avatar js-avatar">?</div>
-        <div><div class="nm js-uname"></div><div class="ph js-uphone"></div></div>
+        <div><div class="nm js-uname"></div><div class="ph js-uemail"></div></div>
         <button class="btn small onbrand" id="logoutBtn" type="button">Logout</button>
       </div>
     </div>
   </header>
   <div class="wrap">
-    <div class="page-head"><h1>Your Test Papers</h1><p>Select a paper to begin. Each paper can be attempted once.</p></div>
+    <nav class="crumbs" id="crumbs"></nav>
+    <div class="page-head"><h1 id="listTitle">Your Test Papers</h1><p id="listSub"></p></div>
     <div id="paperMsg"></div>
     <div class="paper-grid" id="paperGrid"></div>
   </div>
@@ -90,14 +160,14 @@ window.MathJax = {
       <h2>Terms &amp; Conditions</h2>
       <div class="tc-box">
         <ol>
-          <li>I am the candidate whose name and contact number were entered on the login page, and I will attempt this test myself.</li>
+          <li>I am the student who owns this account, and I will attempt this test myself.</li>
           <li>I will not use any books, notes, calculators, mobile phones, websites, AI tools or help from any other person during the test.</li>
           <li>I understand that the timer cannot be paused once the test has started, and it keeps running even if I close or leave this page.</li>
-          <li>I understand that this paper can be attempted <b>only once</b> with my contact number.</li>
+          <li>I understand that this paper can be attempted <b>only once</b> from my account.</li>
           <li>I understand that the test will be submitted automatically when the time limit ends.</li>
           <li>I understand that once I click <b>Final Submit</b>, I cannot change any answer.</li>
           <li id="tcMarking"></li>
-          <li>I understand that my name, contact number, answers and result will be recorded by the teacher.</li>
+          <li>I understand that my name, email, mobile number, answers and result will be recorded by the teacher.</li>
           <li>I understand that the result and topic analysis are for practice and self-assessment only, and are not an official score.</li>
           <li>I will not copy, share or distribute the questions or solutions of this paper without permission.</li>
         </ol>
@@ -150,7 +220,7 @@ window.MathJax = {
     <aside class="card side">
       <div class="cand">
         <div class="avatar js-avatar2">?</div>
-        <div><div class="nm js-uname"></div><div class="ph js-uphone"></div></div>
+        <div><div class="nm js-uname"></div><div class="ph js-uemail"></div></div>
       </div>
       <div class="legend" id="legend"></div>
       <div id="palWrap"></div>
@@ -243,57 +313,77 @@ function typeset(el,tries=0){
 }
 function beforeUnload(e){e.preventDefault();e.returnValue='';return '';}
 
-async function apiGet(params){
-  const u = new URL(API); Object.entries(params).forEach(([k,v])=>u.searchParams.set(k,v)); u.searchParams.set('_', Date.now());
-  const r = await fetch(u.toString(), {method:'GET', redirect:'follow'});
-  const j = await r.json(); if(!j.ok) throw new Error(j.error||'Request failed'); return j;
+/* ---------- Supabase login (same accounts as the Doubt Portal) ---------- */
+const SITE_URL = location.origin + location.pathname;
+let SB = null;
+try{ if(window.supabase && CFG.SUPABASE_URL && CFG.SUPABASE_KEY) SB = window.supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_KEY); }catch(e){}
+async function token(){
+  if(!SB) return '';
+  const { data } = await SB.auth.getSession();
+  return data.session ? data.session.access_token : '';
 }
-async function apiPost(body){
+/* Every student request is a POST carrying the login token; the server checks it with Supabase. */
+async function api(action, extra){
+  const body = Object.assign({}, extra||{}, {action, token: await token()});
   const r = await fetch(API, {method:'POST', redirect:'follow', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(body)});
-  const j = await r.json(); if(!j.ok) throw new Error(j.error||'Request failed'); return j;
+  const j = await r.json();
+  if(!j.ok){
+    const msg = String(j.error||'Request failed');
+    if(msg.indexOf('AUTH:')===0){ const e=new Error(msg.slice(5).trim()); e.auth=true; throw e; }
+    throw new Error(msg);
+  }
+  return j;
+}
+function authFail(err){
+  busy(false);
+  if(SB) SB.auth.signOut().catch(()=>{});
+  USER=null; authView('vLogin'); authMsg(err.message||'Please log in again.','err'); show('login');
 }
 
 /* =====================================================================
    APP STATE
    ===================================================================== */
-let USER = null;            // {name, phone}
+let USER = null;            // {id, email, name, phone}
 let ATTEMPTS = {};          // paperId -> {score,maxMarks,time}
 let PAPERS = [];            // list from server
 const PAPER_CACHE = {};     // id -> full paper JSON
 let P = null, ST, SEC, Q, N, DURATION, IDEAL, MAXM, HEAD;   // current paper
 let S = null;               // current attempt state
 let VIEW_ONLY = false;      // viewing a past result
+let VIEW = {level:'home'};  // where the student is in the folder list
 
 document.querySelectorAll('.js-brand').forEach(e=>e.textContent=BRAND.toUpperCase()+' · MOCK TESTS');
 document.querySelectorAll('.js-brand-plain').forEach(e=>e.textContent=BRAND);
-if(!API) $('cfgErr').style.display='block';
+if(!API || !SB) $('cfgErr').style.display='block';
 
 function setUserUI(){
-  document.querySelectorAll('.js-uname').forEach(e=>e.textContent=USER.name);
-  document.querySelectorAll('.js-uphone').forEach(e=>e.textContent='+91 '+USER.phone);
-  document.querySelectorAll('.js-avatar,.js-avatar2').forEach(e=>e.textContent=USER.name.charAt(0).toUpperCase());
+  const nm = USER.name || USER.email;
+  document.querySelectorAll('.js-uname').forEach(e=>e.textContent=nm);
+  document.querySelectorAll('.js-uemail').forEach(e=>e.textContent=USER.email);
+  document.querySelectorAll('.js-avatar,.js-avatar2').forEach(e=>e.textContent=nm.charAt(0).toUpperCase());
 }
 
 /* ---------- pending submissions (offline safety) ---------- */
 function pendingList(){ return LS.get('stp_pending', []); }
 function mergePendingAttempts(){
-  pendingList().filter(p=>p.phone===USER.phone).forEach(p=>{ if(!ATTEMPTS[p.paperId]) ATTEMPTS[p.paperId]={score:p.localScore,maxMarks:p.localMax,pending:true}; });
+  pendingList().filter(p=>p.uid===USER.id).forEach(p=>{ if(!ATTEMPTS[p.paperId]) ATTEMPTS[p.paperId]={score:p.localScore,maxMarks:p.localMax,pending:true,time:new Date(p.submitAt).toISOString()}; });
 }
 async function flushPending(){
-  if(!API) return;
+  if(!API || !USER) return;
   let list = pendingList(); if(!list.length) return;
   const keep=[];
   for(const item of list){
-    try{ const r = await apiPost(item); if(USER && item.phone===USER.phone) ATTEMPTS[item.paperId]={score:r.score,maxMarks:r.maxMarks}; }
+    if(item.uid!==USER.id){ keep.push(item); continue; }   // another student's result on this device: send when they log in
+    try{ const r = await api('submit', item); ATTEMPTS[item.paperId]={score:r.score,maxMarks:r.maxMarks,time:new Date(item.submitAt).toISOString()}; }
     catch(e){ keep.push(item); }
   }
   LS.set('stp_pending', keep);
   updateSaveStatus();
 }
-setInterval(()=>{ if(pendingList().length) flushPending(); }, 20000);
+setInterval(()=>{ if(USER && pendingList().length) flushPending(); }, 20000);
 
 /* =====================================================================
-   LOGIN
+   LOGIN / SIGN UP / EMAIL CONFIRMATION / PASSWORD RESET
    ===================================================================== */
 function normPhone(v){
   let p=String(v||'').replace(/[\s\-()]/g,'');
@@ -301,58 +391,260 @@ function normPhone(v){
   if(/^0\d{10}$/.test(p)) p=p.slice(1);
   return p;
 }
-$('loginForm').addEventListener('submit', async e=>{
+const okEmail = v => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v);
+const okName = v => v.length>=2 && /[A-Za-zऀ-ॿ]/.test(v);
+const okPhone = v => /^[6-9]\d{9}$/.test(v);
+function authView(id){
+  document.querySelectorAll('.aview').forEach(v=>v.hidden = v.id!==id);
+  document.querySelectorAll('#login .err').forEach(e=>e.textContent='');
+}
+function authMsg(text, kind){
+  $('authMsg').innerHTML = text ? `<div class="msg-box ${kind==='ok'?'ok':'err'}">${esc(text)}</div>` : '';
+}
+/* Supabase error messages, in plain words */
+function niceErr(err){
+  const m = String(err && err.message || err || '');
+  if(/invalid login credentials/i.test(m)) return 'Wrong email or password.';
+  if(/email not confirmed/i.test(m)) return 'Your email is not confirmed yet. Open the confirmation email and click the link first.';
+  if(/already registered|already been registered|user already exists/i.test(m)) return 'An account with this email already exists. Please log in, or use "Forgot password?".';
+  if(/rate limit|too many|security purposes/i.test(m)) return 'Too many attempts. Please wait a minute and try again.';
+  if(/password should be at least|weak password/i.test(m)) return 'Password must be at least 6 characters.';
+  if(/failed to fetch|network/i.test(m)) return 'Could not connect. Check your internet and try again.';
+  return m || 'Something went wrong. Please try again.';
+}
+document.querySelectorAll('[data-av]').forEach(b=>b.addEventListener('click',()=>{
+  authMsg('');
+  const from = document.querySelector('.aview:not([hidden]) input[type=email]');
+  authView(b.dataset.av);
+  const to = document.querySelector('#'+b.dataset.av+' input[type=email]');
+  if(from && to && !to.value) to.value = from.value;
+}));
+
+$('vLogin').addEventListener('submit', async e=>{
+  e.preventDefault(); authMsg('');
+  const email=$('lEmail').value.trim().toLowerCase(), pass=$('lPass').value;
+  if(!okEmail(email)){ $('lErr').textContent='Please enter a valid email.'; return; }
+  if(!pass){ $('lErr').textContent='Please enter your password.'; return; }
+  if(!SB || !API) return;
+  busy(true,'Logging in…');
+  const { data, error } = await SB.auth.signInWithPassword({email, password:pass});
+  if(error){ busy(false); $('lErr').textContent=niceErr(error);
+    if(/not confirmed/i.test(error.message)){ $('ckEmail').textContent=email; LAST_SIGNUP=email; authView('vCheck'); authMsg(niceErr(error),'err'); }
+    return; }
+  $('lPass').value='';
+  await enter(data.session, true);
+});
+
+let LAST_SIGNUP='';
+$('vSignup').addEventListener('submit', async e=>{
+  e.preventDefault(); authMsg('');
+  const name=$('sName').value.trim().replace(/\s+/g,' '), phone=normPhone($('sPhone').value);
+  const email=$('sEmail').value.trim().toLowerCase(), pass=$('sPass').value, pass2=$('sPass2').value;
+  const E=t=>{ $('sErr').textContent=t; };
+  if(!okName(name)) return E('Please enter your full name.');
+  if(!okPhone(phone)) return E('Please enter a valid 10-digit mobile number.');
+  if(!okEmail(email)) return E('Please enter a valid email.');
+  if(pass.length<6) return E('Password must be at least 6 characters.');
+  if(pass!==pass2) return E('The two passwords do not match.');
+  if(!SB) return;
+  busy(true,'Creating your account…');
+  const { data, error } = await SB.auth.signUp({ email, password:pass,
+    options:{ emailRedirectTo: SITE_URL, data:{ full_name:name, phone } } });
+  busy(false);
+  if(error) return E(niceErr(error));
+  // Supabase hides "email already used": it returns a user with no identities
+  if(data.user && Array.isArray(data.user.identities) && data.user.identities.length===0)
+    return E('An account with this email already exists. Please log in, or use "Forgot password?".');
+  $('sPass').value=''; $('sPass2').value='';
+  if(data.session){ await enter(data.session, true); return; }   // only if email confirmation is switched off
+  LAST_SIGNUP=email; $('ckEmail').textContent=email; authView('vCheck');
+});
+
+$('resendBtn').addEventListener('click', async ()=>{
+  if(!SB || !LAST_SIGNUP) return;
+  busy(true,'Sending…');
+  const { error } = await SB.auth.resend({ type:'signup', email:LAST_SIGNUP, options:{ emailRedirectTo: SITE_URL } });
+  busy(false);
+  authMsg(error ? niceErr(error) : 'Confirmation email sent again to '+LAST_SIGNUP+'.', error?'err':'ok');
+});
+
+$('vForgot').addEventListener('submit', async e=>{
+  e.preventDefault(); authMsg('');
+  const email=$('fEmail').value.trim().toLowerCase();
+  if(!okEmail(email)){ $('fErr').textContent='Please enter a valid email.'; return; }
+  if(!SB) return;
+  busy(true,'Sending…');
+  const { error } = await SB.auth.resetPasswordForEmail(email, { redirectTo: SITE_URL });
+  busy(false);
+  if(error){ $('fErr').textContent=niceErr(error); return; }
+  authView('vLogin'); $('lEmail').value=email;
+  authMsg('If an account exists for '+email+', a password reset link has been sent. Open the email and click the link.','ok');
+});
+
+let RECOVERY=false;
+$('vReset').addEventListener('submit', async e=>{
   e.preventDefault();
-  const name=$('cName').value.trim().replace(/\s+/g,' ');
-  const p=normPhone($('cPhone').value);
-  let ok=true;
-  if(name.length<2 || !/[A-Za-zऀ-ॿ]/.test(name)){$('nameErr').textContent='Please enter your full name.';ok=false;} else $('nameErr').textContent='';
-  if(!/^[6-9]\d{9}$/.test(p)){$('phoneErr').textContent='Please enter a valid 10-digit mobile number.';ok=false;} else $('phoneErr').textContent='';
-  if(!ok || !API) return;
-  busy(true,'Signing in…');
+  const a=$('rPass').value, b=$('rPass2').value;
+  if(a.length<6){ $('rErr').textContent='Password must be at least 6 characters.'; return; }
+  if(a!==b){ $('rErr').textContent='The two passwords do not match.'; return; }
+  busy(true,'Saving…');
+  const { data, error } = await SB.auth.updateUser({ password:a });
+  if(error){ busy(false); $('rErr').textContent=niceErr(error); return; }
+  RECOVERY=false; $('rPass').value=''; $('rPass2').value='';
+  toast('✓ Your password has been changed.');
+  const s=(await SB.auth.getSession()).data.session;
+  await enter(s, true);
+});
+
+$('vProfile').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const name=$('pName').value.trim().replace(/\s+/g,' '), phone=normPhone($('pPhone').value);
+  if(!okName(name)){ $('pErr').textContent='Please enter your full name.'; return; }
+  if(!okPhone(phone)){ $('pErr').textContent='Please enter a valid 10-digit mobile number.'; return; }
+  busy(true,'Saving…');
+  const { error } = await SB.auth.updateUser({ data:{ full_name:name, phone } });
+  if(error){ busy(false); $('pErr').textContent=niceErr(error); return; }
+  await SB.auth.refreshSession().catch(()=>{});
+  const s=(await SB.auth.getSession()).data.session;
+  await enter(s, true);
+});
+
+async function logout(){
+  busy(true,'Logging out…');
+  try{ if(SB) await SB.auth.signOut(); }catch(e){}
+  USER=null; ATTEMPTS={}; PAPERS=[]; VIEW={level:'home'};
+  busy(false); authMsg(''); authView('vLogin'); show('login');
+}
+$('logoutBtn').addEventListener('click', logout);
+$('pLogout').addEventListener('click', logout);
+
+/* A Supabase session exists: check it with the server, then open the portal */
+async function enter(session, log){
+  if(!session){ busy(false); authView('vLogin'); show('login'); return; }
+  const m = session.user.user_metadata || {};
+  USER = { id:session.user.id, email:session.user.email, name:String(m.full_name||m.name||'').trim(), phone:normPhone(m.phone||'') };
+  setUserUI();
+  if(!okName(USER.name) || !okPhone(USER.phone)){        // account made on the Doubt Portal
+    busy(false); $('pName').value=USER.name; $('pPhone').value=USER.phone;
+    authMsg(''); authView('vProfile'); show('login'); return;
+  }
+  busy(true,'Opening your tests…');
   try{
-    const r = await apiPost({action:'login', name, phone:p});
-    USER={name, phone:p}; LS.set('stp_user', USER);
+    const r = await api('me', {log: !!log});
     ATTEMPTS={}; (r.attempts||[]).forEach(a=>ATTEMPTS[a.paperId]=a);
     await afterLogin();
-  }catch(err){ busy(false); $('phoneErr').textContent='Could not connect. Check your internet and try again.'; }
-});
-$('logoutBtn').addEventListener('click',()=>{ LS.del('stp_user'); USER=null; $('cName').value=''; $('cPhone').value=''; show('login'); });
+  }catch(err){
+    if(err.auth) return authFail(err);
+    busy(false); authView('vLogin'); show('login');
+    authMsg('Could not connect to the test server. Check your internet and try again.','err');
+  }
+}
 
 async function afterLogin(){
-  setUserUI(); mergePendingAttempts(); flushPending();
+  mergePendingAttempts(); flushPending();
   // resume an unfinished test after refresh / closing the tab
   const act = LS.get('stp_active', null);
-  if(act && act.phone===USER.phone){
+  if(act && act.uid===USER.id){
     try{ await resumeActive(act); busy(false); return; }catch(e){ LS.del('stp_active'); }
   }
+  VIEW={level:'home'};
   await loadPapers();
 }
 
 /* =====================================================================
-   PAPER LIST
+   FOLDERS & PAPER LIST
    ===================================================================== */
+const FOLDERS = (CFG.FOLDERS && CFG.FOLDERS.length) ? CFG.FOLDERS : [
+  {id:'topic', title:'Topic-wise Papers', desc:'Chapter and topic tests', icon:'📘', bySubject:true},
+  {id:'full', title:'Full Syllabus Papers', desc:'Tests on the complete syllabus', icon:'📚'},
+  {id:'main3h', title:'JEE Main 3-Hour Papers', desc:'Full-length papers in the JEE Main pattern', icon:'⏱️'}
+];
+const SUBJECTS = (CFG.SUBJECTS && CFG.SUBJECTS.length) ? CFG.SUBJECTS : [{name:'Mathematics', show:true}];
+const shownSubjects = () => SUBJECTS.filter(s=>s.show);
+/* which subject a paper belongs to (blank subject = first shown subject) */
+function subjectOf(p){
+  const t=String(p.subject||'').toLowerCase();
+  const hit=SUBJECTS.find(s=>t.indexOf(s.name.toLowerCase())>=0);
+  return hit ? hit.name : (shownSubjects()[0]||{}).name;
+}
+/* a paper that mentions a subject that is switched off is not shown at all */
+function paperVisible(p){
+  const t=String(p.subject||'').toLowerCase();
+  return !SUBJECTS.some(s=>!s.show && t.indexOf(s.name.toLowerCase())>=0);
+}
+const folderOf = id => FOLDERS.find(f=>f.id===id);
+function papersIn(cat, subject){
+  return PAPERS.filter(p=>paperVisible(p) && (p.category||'topic')===cat && (!subject || subjectOf(p)===subject));
+}
+const doneCount = list => list.filter(p=>ATTEMPTS[p.id]).length;
+
 async function loadPapers(){
   busy(true,'Loading papers…');
   try{
-    const [pl, at] = await Promise.all([apiGet({action:'papers'}), apiGet({action:'attempts', phone:USER.phone}).catch(()=>null)]);
+    const [pl, at] = await Promise.all([api('papers'), api('attempts').catch(e=>{ if(e.auth) throw e; return null; })]);
     PAPERS = pl.papers||[];
     if(at){ ATTEMPTS={}; (at.attempts||[]).forEach(a=>ATTEMPTS[a.paperId]=a); }
     mergePendingAttempts();
     $('paperMsg').innerHTML='';
   }catch(e){
+    if(e.auth) return authFail(e);
     $('paperMsg').innerHTML=`<div class="msg-box err">Could not load papers. Please check your internet connection. <button class="btn small light" onclick="loadPapers()">Retry</button></div>`;
   }
   busy(false);
   renderPapers(); show('papers');
 }
+function go(view){ VIEW=view; renderPapers(); show('papers'); }
+function crumbs(parts){
+  $('crumbs').innerHTML = parts.map((c,i)=> i<parts.length-1
+    ? `<button type="button" class="linkbtn" data-go='${esc(JSON.stringify(c.view))}'>${esc(c.label)}</button><span>›</span>`
+    : `<b>${esc(c.label)}</b>`).join('');
+}
+function folderCard(icon, title, desc, n, done, go, empty){
+  return `<button type="button" class="card folder-card${n?'':' empty-f'}" data-go='${esc(JSON.stringify(go))}'>
+    <span class="f-ico">${icon}</span>
+    <span class="f-body"><b>${esc(title)}</b><span>${esc(desc)}</span></span>
+    <span class="f-count">${n ? `${n} paper${n>1?'s':''}${done?` · ${done} done`:''}` : esc(empty||'Coming soon')}</span>
+  </button>`;
+}
 function renderPapers(){
-  if(!PAPERS.length){ $('paperGrid').innerHTML='<div class="card empty" style="grid-column:1/-1">No test papers are available right now.</div>'; return; }
-  $('paperGrid').innerHTML = PAPERS.map((p,k)=>{
+  const grid=$('paperGrid');
+  grid.classList.toggle('folder-grid', VIEW.level==='home' || VIEW.level==='subjects');
+  if(VIEW.level==='home'){
+    crumbs([]); $('listTitle').textContent='Your Test Papers';
+    $('listSub').textContent='Choose a folder. Each paper can be attempted once. You can see your result and solutions anytime from My Results.';
+    const nRes=Object.keys(ATTEMPTS).length;
+    grid.innerHTML = FOLDERS.filter(f=>!f.hidden).map(f=>{
+      const list=papersIn(f.id);
+      return folderCard(f.icon||'📁', f.title, f.desc||'', list.length, doneCount(list), {level:'folder', cat:f.id});
+    }).join('') + folderCard('📊','My Results','Your scores, reports and solutions', nRes, 0, {level:'results'}, 'No tests given yet')
+      .replace(`${nRes} paper${nRes>1?'s':''}`, `${nRes} test${nRes>1?'s':''} given`);
+    return;
+  }
+  if(VIEW.level==='results') return renderResults();
+  const f=folderOf(VIEW.cat)||FOLDERS[0];
+  const subs=shownSubjects();
+  if(VIEW.level==='folder' && f.bySubject && subs.length>1){      // subject sub-folders (only when 2+ subjects are on)
+    crumbs([{label:'All Folders',view:{level:'home'}},{label:f.title}]);
+    $('listTitle').textContent=f.title; $('listSub').textContent='Choose a subject.';
+    grid.classList.add('folder-grid');
+    grid.innerHTML = subs.map(s=>{ const list=papersIn(f.id,s.name);
+      return folderCard(s.icon||'📗', s.name, s.desc||'', list.length, doneCount(list), {level:'folder', cat:f.id, subject:s.name}); }).join('');
+    return;
+  }
+  const list=papersIn(f.id, VIEW.subject);
+  const trail=[{label:'All Folders',view:{level:'home'}}];
+  if(VIEW.subject){ trail.push({label:f.title,view:{level:'folder',cat:f.id}}); trail.push({label:VIEW.subject}); }
+  else trail.push({label:f.title});
+  crumbs(trail);
+  $('listTitle').textContent = VIEW.subject ? f.title+' — '+VIEW.subject : f.title;
+  $('listSub').textContent = list.length ? `${list.length} paper${list.length>1?'s':''} · ${doneCount(list)} attempted` : '';
+  if(!list.length){ grid.innerHTML='<div class="card empty" style="grid-column:1/-1">No papers in this folder yet. New papers will appear here soon.</div>'; return; }
+  grid.innerHTML = list.map((p,k)=>{
     const a = ATTEMPTS[p.id];
     const foot = a
-      ? `<span class="done-pill">✓ Attempted${a.score!==undefined&&a.score!==null?` · ${a.score}/${a.maxMarks}`:''}</span>
-         <button class="btn small ghost" type="button" data-view="${esc(p.id)}">View Result</button>`
+      ? `<span class="done-pill">✓ Attempted${a.score!==undefined&&a.score!==null&&a.score!==''?` · ${a.score}/${a.maxMarks}`:''}</span>
+         <span class="foot-btns"><button class="btn small ghost" type="button" data-view="${esc(p.id)}">View Result</button>
+         <button class="btn small light" type="button" data-sol="${esc(p.id)}">Solutions</button></span>`
       : `<span style="color:var(--muted);font-size:13px">Not attempted</span>
          <button class="btn small green" type="button" data-open="${esc(p.id)}">Start Test →</button>`;
     return `<div class="card paper-card">
@@ -363,13 +655,39 @@ function renderPapers(){
       <div class="foot">${foot}</div></div>`;
   }).join('');
 }
-$('paperGrid').addEventListener('click', e=>{
+function fmtWhen(t){
+  if(!t) return '';
+  const d=new Date(String(t).replace(' ','T'));
+  return isNaN(d) ? String(t) : d.toLocaleString('en-IN',{dateStyle:'medium',timeStyle:'short'});
+}
+function renderResults(){
+  crumbs([{label:'All Folders',view:{level:'home'}},{label:'My Results'}]);
+  $('listTitle').textContent='My Results';
+  const list=Object.entries(ATTEMPTS).map(([id,a])=>{
+    const p=PAPERS.find(x=>x.id===id)||{};
+    return {id, name:p.name||a.paperName||'Test paper', p, a};
+  }).sort((x,y)=>String(y.a.time||'').localeCompare(String(x.a.time||'')));
+  $('listSub').textContent = list.length ? 'Open any test to see your full report, question-wise analysis and detailed solutions.' : '';
+  if(!list.length){ $('paperGrid').innerHTML='<div class="card empty" style="grid-column:1/-1">You have not given any test yet. Open a folder and start a paper.</div>'; return; }
+  $('paperGrid').innerHTML = list.map(r=>{
+    const f=folderOf(r.p.category); const pct = r.a.maxMarks ? Math.round(Number(r.a.score)/Number(r.a.maxMarks)*100) : null;
+    return `<div class="card paper-card">
+      <div class="pnum">${esc(f?f.title:'Test')}</div>
+      <h3>${esc(r.name)}</h3>
+      <div class="meta"><span>Score ${esc(r.a.score)}/${esc(r.a.maxMarks)}</span>${pct!==null&&!isNaN(pct)?`<span>${pct}%</span>`:''}${r.a.time?`<span>${esc(fmtWhen(r.a.time))}</span>`:''}${r.a.pending?'<span>Saving…</span>':''}</div>
+      <div class="foot"><button class="btn small ghost" type="button" data-view="${esc(r.id)}">View Result</button>
+        <button class="btn small" type="button" data-sol="${esc(r.id)}">📘 View Solutions</button></div></div>`;
+  }).join('');
+}
+document.querySelector('#papers').addEventListener('click', e=>{
+  const g=e.target.closest('[data-go]'); if(g){ go(JSON.parse(g.dataset.go)); return; }
   const o=e.target.closest('[data-open]'); if(o) openPaper(o.dataset.open);
   const v=e.target.closest('[data-view]'); if(v) viewResult(v.dataset.view);
+  const s=e.target.closest('[data-sol]'); if(s) viewResult(s.dataset.sol, true);
 });
 async function fetchPaper(id){
   if(PAPER_CACHE[id]) return PAPER_CACHE[id];
-  const r = await apiGet({action:'paper', id}); PAPER_CACHE[id]=r.paper; return r.paper;
+  const r = await api('paper',{id}); PAPER_CACHE[id]=r.paper; return r.paper;
 }
 
 /* =====================================================================
@@ -400,12 +718,12 @@ async function openPaper(id){
   if(ATTEMPTS[id]){ toast('You have already attempted this paper.'); return; }
   busy(true,'Opening paper…');
   try{
-    const [paper, at] = await Promise.all([fetchPaper(id), apiGet({action:'attempts', phone:USER.phone}).catch(()=>null)]);
+    const [paper, at] = await Promise.all([fetchPaper(id), api('attempts').catch(()=>null)]);
     if(at){ (at.attempts||[]).forEach(a=>ATTEMPTS[a.paperId]=a); }
     if(ATTEMPTS[id]){ busy(false); renderPapers(); toast('You have already attempted this paper.'); return; }
     usePaper(paper); VIEW_ONLY=false; S=freshState();
     renderInstructions(); busy(false); show('instructions');
-  }catch(e){ busy(false); toast('Could not open the paper. Please check your internet and try again.'); }
+  }catch(e){ if(e.auth) return authFail(e); busy(false); toast('Could not open the paper. Please check your internet and try again.'); }
 }
 
 /* =====================================================================
@@ -441,7 +759,7 @@ $('startBtn').addEventListener('click',startExam);
    ===================================================================== */
 function saveActive(){
   if(!S || S.submitted || VIEW_ONLY) return;
-  LS.set('stp_active',{phone:USER.phone, name:USER.name, paperId:P.id, ans:S.ans, mark:S.mark, visited:S.visited,
+  LS.set('stp_active',{uid:USER.id, name:USER.name, paperId:P.id, ans:S.ans, mark:S.mark, visited:S.visited,
     time:S.time.map((t,i)=>i===S.cur?t+(Date.now()-S.last):t), cur:S.cur, start:S.start, end:S.end, warned10:S.warned10, warned5:S.warned5});
 }
 function startExam(){
@@ -612,7 +930,7 @@ function submitTest(auto){
   evaluate();
   const score=S.R.reduce((s,r)=>s+r.marks,0);
   const tl=topicLists();
-  const item={action:'submit', phone:USER.phone, name:USER.name, paperId:P.id, paperName:ST.paperName||'',
+  const item={action:'submit', uid:USER.id, name:USER.name, paperId:P.id, paperName:ST.paperName||'',
     ans:S.ans, mark:S.mark, time:S.time.map(t=>Math.round(t)), auto, start:S.start, submitAt:S.submitAt,
     taken:Math.min(S.submitAt-S.start,DURATION), strong:tl.strongCh.join(', '), weak:tl.wrongCh.concat(tl.skipCh).join(', '),
     localScore:score, localMax:MAXM};
@@ -626,27 +944,28 @@ function submitTest(auto){
 }
 function updateSaveStatus(){
   const el=document.getElementById('saveStatus'); if(!el || VIEW_ONLY) return;
-  const pend = P && pendingList().some(p=>p.phone===USER.phone && p.paperId===P.id);
+  const pend = P && pendingList().some(p=>p.uid===USER.id && p.paperId===P.id);
   if(pend){ el.className='save-status bad'; el.textContent='⏳ Saving your result… (will retry automatically — please keep internet on)'; }
   else { el.className='save-status ok'; el.textContent='✓ Result saved'; }
 }
 
 /* ---------- view a past result ---------- */
-async function viewResult(id){
+async function viewResult(id, solutions){
   busy(true,'Loading your result…');
   try{
     const paper = await fetchPaper(id);
     let d=null;
-    const pend = pendingList().find(p=>p.phone===USER.phone && p.paperId===id);
+    const pend = pendingList().find(p=>p.uid===USER.id && p.paperId===id);
     if(pend) d={ans:pend.ans,mark:pend.mark,time:pend.time,auto:pend.auto,start:pend.start,submitAt:pend.submitAt,taken:pend.taken};
-    else d=(await apiGet({action:'attempt', phone:USER.phone, paperId:id})).attempt;
+    else d=(await api('attempt',{paperId:id})).attempt;
     usePaper(paper); S=freshState();
     S.ans=(d.ans||[]).slice(0,N); while(S.ans.length<N) S.ans.push(null);
     S.mark=(d.mark||[]).slice(0,N); S.time=(d.time||[]).map(Number); while(S.time.length<N) S.time.push(0);
     S.auto=!!d.auto; S.submitted=true; S.start=Number(d.start)||0; S.submitAt=Number(d.submitAt)||Date.now();
     if(!S.start) S.start=S.submitAt-(Number(d.taken)||0);
     evaluate(); VIEW_ONLY=!pend; renderReport(); busy(false); show('result');
-  }catch(e){ busy(false); toast('Could not load the result. Please try again.'); }
+    if(solutions){ S.solCur=0; openSolutions(); }
+  }catch(e){ if(e.auth) return authFail(e); busy(false); toast('Could not load the result. Please try again.'); }
 }
 
 /* =====================================================================
@@ -727,7 +1046,7 @@ function renderReport(){
     <div style="opacity:.9">${esc([ST.paperName, HEAD, ST.subject].filter(Boolean).join(' · '))}</div>
     <div class="who">
       <div><span class="lbl">Candidate Name</span><b>${esc(USER.name)}</b></div>
-      <div><span class="lbl">Contact Number</span><b>+91 ${esc(USER.phone)}</b></div>
+      <div><span class="lbl">Email</span><b>${esc(USER.email)}</b></div>
       <div><span class="lbl">Submitted On</span><b>${dt}</b></div>
     </div>
     ${S.auto?'<span class="auto-flag">⏰ Auto-submitted — time limit reached</span>':''}
@@ -797,7 +1116,7 @@ function backToPapers(){ renderPapers(); show('papers'); loadPapers(); }
    SOLUTIONS
    ===================================================================== */
 function openSolutions(){
-  $('solWho').textContent=USER.name+' · +91 '+USER.phone;
+  $('solWho').textContent=USER.name+' · '+USER.email;
   $('sPalWrap').innerHTML=palHTML(i=>'r'+S.R[i].res);
   show('solutions');
   renderSol(S.solCur||0);
@@ -843,12 +1162,39 @@ $('backReport').addEventListener('click',()=>show('result'));
 /* =====================================================================
    START-UP: remember the logged-in student on this device
    ===================================================================== */
+/* an email link opened in a tab where the site is already open: reload so Supabase reads it */
+window.addEventListener('hashchange',()=>{ if(/access_token=|error_description=/.test(location.hash)) location.reload(); });
 (async function boot(){
-  const u = LS.get('stp_user', null);
-  if(API && u && u.phone && u.name){
-    USER=u; $('cName').value=u.name; $('cPhone').value=u.phone;
-    try{ await afterLogin(); }catch(e){ busy(false); show('login'); }
+  authView('vLogin');
+  if(!SB || !API) return;
+  const hash = location.hash || '';
+  const hp = new URLSearchParams(hash.replace(/^#/,''));
+  const isRecovery = hp.get('type')==='recovery';
+  const isSignup = hp.get('type')==='signup' || hp.get('type')==='email_change';
+  SB.auth.onAuthStateChange((event)=>{ if(event==='PASSWORD_RECOVERY') RECOVERY=true; });
+  busy(true,'Loading…');
+  let session=null;
+  try{ session=(await SB.auth.getSession()).data.session; }catch(e){}
+  if(hash && (hp.get('access_token') || hp.get('error'))) history.replaceState(null,'',SITE_URL);
+  if(hp.get('error')){
+    busy(false);
+    const d=hp.get('error_description')||'';
+    authMsg(/expired|invalid/i.test(d)
+      ? 'This link has expired or was already used. Please log in, or ask for a new link.'
+      : (d || 'The link could not be opened. Please try again.'),'err');
+    return;
   }
+  if(session && (isRecovery || RECOVERY)){
+    busy(false);
+    document.querySelectorAll('.js-uemail').forEach(e=>e.textContent=session.user.email);
+    authView('vReset'); show('login'); return;
+  }
+  if(session){
+    if(isSignup) toast('✓ Your email is confirmed. Welcome!',5000);
+    await enter(session, isSignup);
+    return;
+  }
+  busy(false);
 })();
 </script>
 </body>

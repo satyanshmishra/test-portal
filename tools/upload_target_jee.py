@@ -14,8 +14,8 @@ What it does
                                                 sub-folder "JEE Main 2026 PYQ"
 No level is ever written in a name, so students do not see Level 1/2/3/4.
 
-The Web App URL is read from config.js of the test portal (or asked once and saved in
-upload_config.json). The admin password is asked every time and never saved.
+The Web App URL is built in (same as the portal's config.js). The admin password is asked
+every time and never saved.
 uploaded_log.json remembers what went up, so a re-run skips those papers.
 Needs only Python 3 (no pip installs).
 """
@@ -71,10 +71,20 @@ def main():
         print(f"\n[{cat}] {len(names)} papers"); [print("   ", n) for n in names[:6]]; len(names) > 6 and print("    ...")
     if "--upload" not in sys.argv:
         print("\nNothing uploaded. Check the names above, then run:  python upload_target_jee.py --upload"); return
-    cfg = json.load(open(CFG)) if os.path.exists(CFG) else {}
-    url = cfg.get("url") or input(f"Web App URL [Enter = {DEFAULT_URL[:50]}...]: ").strip() or DEFAULT_URL
-    json.dump({"url": url}, open(CFG, "w"))
-    pw = getpass.getpass("Admin password: ")
+    # The Web App URL is fixed (same as config.js); no prompt, so nothing typed here is ever saved.
+    url = DEFAULT_URL
+    if os.path.exists(CFG):
+        try:
+            u = json.load(open(CFG)).get("url", "")
+        except Exception:
+            u = ""
+        if u.startswith("https://script.google.com/"):
+            url = u
+        else:
+            os.remove(CFG)   # old/wrong value (e.g. a password typed at the URL prompt): delete it
+            print("Removed an invalid upload_config.json.")
+    print("Web App:", url[:60] + "...")
+    pw = getpass.getpass("Admin password (typing will not show): ")
     if not post(url, {"action": "admin", "op": "login", "password": pw}).get("ok"):
         print("Wrong password."); return
     log = json.load(open(LOG)) if os.path.exists(LOG) else {}

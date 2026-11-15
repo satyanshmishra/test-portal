@@ -326,7 +326,8 @@ async function token(){
 async function api(action, extra){
   const body = Object.assign({}, extra||{}, {action, token: await token()});
   const r = await fetch(API, {method:'POST', redirect:'follow', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(body)});
-  const j = await r.json();
+  const raw = await r.text(); let j;
+  try{ j = JSON.parse(raw); }catch(e){ throw new Error('Server did not send JSON (HTTP '+r.status+'): '+raw.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().slice(0,140)); }
   if(!j.ok){
     const msg = String(j.error||'Request failed');
     if(msg.indexOf('AUTH:')===0){ const e=new Error(msg.slice(5).trim()); e.auth=true; throw e; }
@@ -536,7 +537,7 @@ async function enter(session, log){
   }catch(err){
     if(err.auth) return authFail(err);
     busy(false); authView('vLogin'); show('login');
-    authMsg('Could not connect to the test server. Check your internet and try again.','err');
+    authMsg('Could not connect to the test server. Check your internet and try again.'+(err&&err.message?' (Details: '+err.message+')':''),'err');
   }
 }
 

@@ -14,7 +14,7 @@ window.APP_CONFIG = {
   FOLDERS: [
     { id: "topic",  title: "Topic-wise Papers",      desc: "Chapter and topic tests",                    icon: "📘", bySubject: true },
     { id: "full",   title: "Full Syllabus Papers",   desc: "Tests on the complete syllabus",             icon: "📚" },
-    { id: "main3h", title: "JEE Main 3-Hour Papers", desc: "Full-length papers in the JEE Main pattern", icon: "⏱️" }
+    { id: "main3h", title: "JEE Main 3-Hour Papers", desc: "Full-length papers in the JEE Main pattern", icon: "⏱️", allSubjects: true }
   ],
 
   /* Subjects. Set show: true to switch Physics / Chemistry on later.

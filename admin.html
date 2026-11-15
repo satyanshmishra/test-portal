@@ -157,10 +157,10 @@ document.querySelectorAll('.js-brand').forEach(e=>e.textContent=BRAND);
 if(!API) $('aCfg').style.display='block';
 
 let PASS='', PAPERS=[], RESULTS=[], RLIST=[], DRAFT=null, EDIT_ID=null;
-const FOLDERS=(CFG.FOLDERS&&CFG.FOLDERS.length)?CFG.FOLDERS:[{id:'topic',title:'Topic-wise Papers'},{id:'full',title:'Full Syllabus Papers'},{id:'main3h',title:'JEE Main 3-Hour Papers'}];
+const FOLDERS=(CFG.FOLDERS&&CFG.FOLDERS.length)?CFG.FOLDERS:[{id:'topic',title:'Topic-wise Papers'},{id:'full',title:'Full Syllabus Papers'},{id:'main3h',title:'JEE Main 3-Hour Papers',allSubjects:true}];
 const catOpts=sel=>FOLDERS.map(f=>`<option value="${esc(f.id)}"${f.id===sel?' selected':''}>${esc(f.title)}</option>`).join('');
 const OFF_SUBJ=((CFG.SUBJECTS)||[]).filter(s=>!s.show).map(s=>s.name);
-const subjOff=p=>OFF_SUBJ.find(n=>String(p.subject||'').toLowerCase().includes(n.toLowerCase()));
+const subjOff=p=>((FOLDERS.find(f=>f.id===(p.category||'topic'))||{}).allSubjects ? undefined : OFF_SUBJ.find(n=>String(p.subject||'').toLowerCase().includes(n.toLowerCase())));
 const guessCat=(st)=>FOLDERS.some(f=>f.id===st.category)?st.category:(Number(st.durationMin)>=180?'main3h':'topic');
 $('fCat').innerHTML=catOpts('topic');
 async function admin(op, extra={}){

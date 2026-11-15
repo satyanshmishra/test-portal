@@ -558,7 +558,7 @@ async function afterLogin(){
 const FOLDERS = (CFG.FOLDERS && CFG.FOLDERS.length) ? CFG.FOLDERS : [
   {id:'topic', title:'Topic-wise Papers', desc:'Chapter and topic tests', icon:'📘', bySubject:true},
   {id:'full', title:'Full Syllabus Papers', desc:'Tests on the complete syllabus', icon:'📚'},
-  {id:'main3h', title:'JEE Main 3-Hour Papers', desc:'Full-length papers in the JEE Main pattern', icon:'⏱️'}
+  {id:'main3h', title:'JEE Main 3-Hour Papers', desc:'Full-length papers in the JEE Main pattern', icon:'⏱️', allSubjects:true}
 ];
 const SUBJECTS = (CFG.SUBJECTS && CFG.SUBJECTS.length) ? CFG.SUBJECTS : [{name:'Mathematics', show:true}];
 const shownSubjects = () => SUBJECTS.filter(s=>s.show);
@@ -570,6 +570,8 @@ function subjectOf(p){
 }
 /* a paper that mentions a subject that is switched off is not shown at all */
 function paperVisible(p){
+  const f=FOLDERS.find(x=>x.id===(p.category||'topic'));
+  if(f && f.allSubjects) return true;      // e.g. JEE Main 3-Hour papers: all three subjects always shown
   const t=String(p.subject||'').toLowerCase();
   return !SUBJECTS.some(s=>!s.show && t.indexOf(s.name.toLowerCase())>=0);
 }

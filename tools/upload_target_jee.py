@@ -4,6 +4,7 @@ Upload the Target JEE MAIN 2027 papers to test.satyansh.blog in the right folder
 Run it from inside the "Target JEE MAIN 2027" folder:
     python upload_target_jee.py            (shows what will be uploaded, uploads nothing)
     python upload_target_jee.py --upload   (uploads)
+    python upload_target_jee.py --upload --fix-folders   (moves already-uploaded papers to the right folder)
 
 What it does
   Topic Wise Tests\\Level 1..3\\JSON\\*.json  -> folder "Topic-wise",  sub-folder = chapter,
@@ -88,6 +89,17 @@ def main():
     if not post(url, {"action": "admin", "op": "login", "password": pw}).get("ok"):
         print("Wrong password."); return
     log = json.load(open(LOG)) if os.path.exists(LOG) else {}
+    if "--fix-folders" in sys.argv:
+        # move already-uploaded papers into their right folder (needs the new Apps Script)
+        cats = {os.path.relpath(f, HERE): cat for f, cat, _ in items}
+        done = bad = 0
+        for key, rec in log.items():
+            cat = cats.get(key); pid = rec.get("id")
+            if not cat or not pid: continue
+            r = post(url, {"action": "admin", "op": "setCategory", "password": pw, "id": pid, "category": cat})
+            if r.get("ok"): done += 1
+            else: bad += 1; print("  FAIL", rec.get("name"), "-", r.get("error"))
+        print(f"Folders fixed: {done}, failed: {bad}"); return
     ok = fail = skip = 0
     for f, cat, name in items:
         key = os.path.relpath(f, HERE)

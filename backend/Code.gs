@@ -239,7 +239,8 @@ function grade_(paper, ans) {
   var res = { score: 0, c: 0, w: 0, u: 0, marks: [] };
   paper.questions.forEach(function (q, i) {
     var a = ans[i], s = sec[q.section] || { correct: 4, wrong: -1 }, m = 0;
-    if (a === null || a === undefined || a === '') { res.u++; }
+    if (q.bonus) { res.c++; m = Number(s.correct); }          // NTA bonus question: full marks to everyone
+    else if (a === null || a === undefined || a === '') { res.u++; }
     else {
       var ok = q.type === 'mcq' ? Number(a) === Number(q.ans)
              : Math.abs(parseFloat(a) - Number(q.ans)) <= (q.tol != null ? Number(q.tol) : 0.001) + 1e-9;

@@ -9,7 +9,7 @@
 <script src="assets/supabase.js"></script>
 <script>
 window.MathJax = {
-  tex: { inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']] },
+  tex: { inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']], packages: {'[+]': ['mhchem']} },
   svg: { fontCache: 'global' },
   options: { enableMenu: false },
   startup: { typeset: false }
@@ -915,7 +915,7 @@ $('finalSubmit').addEventListener('click',()=>submitTest(false));
    SUBMIT & EVALUATE
    ===================================================================== */
 function respText(i){const a=S.ans[i];if(a===null||a===undefined||a==='')return'—';return Q[i].type==='mcq'?LET[a]:a;}
-function correctText(i){return Q[i].type==='mcq'?LET[Q[i].ans]:String(Q[i].ans);}
+function correctText(i){return Q[i].bonus?'Bonus':(Q[i].type==='mcq'?LET[Q[i].ans]:String(Q[i].ans));}
 function isCorrect(q,a){
   if(q.type==='mcq') return Number(a)===Number(q.ans);
   const v=parseFloat(a), tol=(q.tol!=null?Number(q.tol):0.001);
@@ -924,6 +924,7 @@ function isCorrect(q,a){
 function evaluate(){
   S.R=Q.map((q,i)=>{
     const a=S.ans[i];
+    if(q.bonus) return {i,res:'c',marks:posMark(q)};        // NTA bonus: full marks to everyone
     if(a===null||a===undefined||a==='') return {i,res:'u',marks:0};
     const ok=isCorrect(q,a);
     return {i,res:ok?'c':'w',marks:ok?posMark(q):negMark(q)};
@@ -1151,7 +1152,7 @@ function renderSol(i){
   let h=`<div class="q-text">${q.q}</div>`;
   if(q.type==='mcq'){
     q.opts.forEach((o,k)=>{
-      const isC=k===Number(q.ans), isU=S.ans[i]!==null&&Number(S.ans[i])===k;
+      const isC=!q.bonus&&k===Number(q.ans), isU=S.ans[i]!==null&&Number(S.ans[i])===k;
       const cls=isC?' correct':(isU?' wrong':'');
       let badges='';
       if(isC) badges+='<span class="badge c">Correct Answer</span>';

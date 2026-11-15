@@ -312,3 +312,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:14px}
 .folder-card.empty-f{border-top-color:#c3ccd9}
 .folder-card.empty-f .f-count{background:#f1f3f7;color:var(--muted)}
 .foot-btns{display:flex;gap:6px;flex-wrap:wrap}
+
+/* tables inside questions (match the lists) */
+.q-text table.tbl,.st table.tbl{border-collapse:collapse;margin:10px 0;font-size:.95em}
+.q-text table.tbl td,.st table.tbl td{border:1px solid rgba(128,128,128,.35);padding:6px 10px;vertical-align:top}

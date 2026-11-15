@@ -606,6 +606,10 @@ function folderCard(icon, title, desc, n, done, go, empty){
     <span class="f-count">${n ? `${n} paper${n>1?'s':''}${done?` · ${done} done`:''}` : esc(empty||'Coming soon')}</span>
   </button>`;
 }
+/* "Group | Title" in a paper's name puts it in a sub-folder (e.g. "Complex Numbers | Test 2") */
+function splitName(n){ const i=String(n||'').indexOf(' | '); return i<0 ? {g:'', t:String(n||'')} : {g:n.slice(0,i).trim(), t:n.slice(i+3).trim()}; }
+const showName = n => { const s=splitName(n); return s.g ? s.g+' · '+s.t : s.t; };
+const natCmp = (a,b) => a.localeCompare(b, undefined, {numeric:true, sensitivity:'base'});
 function renderPapers(){
   const grid=$('paperGrid');
   grid.classList.toggle('folder-grid', VIEW.level==='home' || VIEW.level==='subjects');
@@ -631,15 +635,27 @@ function renderPapers(){
       return folderCard(s.icon||'📗', s.name, s.desc||'', list.length, doneCount(list), {level:'folder', cat:f.id, subject:s.name}); }).join('');
     return;
   }
-  const list=papersIn(f.id, VIEW.subject);
+  const all=papersIn(f.id, VIEW.subject);
+  const base={level:'folder',cat:f.id}; if(VIEW.subject) base.subject=VIEW.subject;
   const trail=[{label:'All Folders',view:{level:'home'}}];
-  if(VIEW.subject){ trail.push({label:f.title,view:{level:'folder',cat:f.id}}); trail.push({label:VIEW.subject}); }
-  else trail.push({label:f.title});
+  if(VIEW.subject){ trail.push({label:f.title,view:{level:'folder',cat:f.id}}); }
+  if(VIEW.group){ trail.push({label:VIEW.subject||f.title,view:base}); trail.push({label:VIEW.group}); }
+  else trail.push({label:VIEW.subject||f.title});
   crumbs(trail);
-  $('listTitle').textContent = VIEW.subject ? f.title+' — '+VIEW.subject : f.title;
-  $('listSub').textContent = list.length ? `${list.length} paper${list.length>1?'s':''} · ${doneCount(list)} attempted` : '';
-  if(!list.length){ grid.innerHTML='<div class="card empty" style="grid-column:1/-1">No papers in this folder yet. New papers will appear here soon.</div>'; return; }
-  grid.innerHTML = list.map((p,k)=>{
+  $('listTitle').textContent = VIEW.group ? VIEW.group : (VIEW.subject ? f.title+' — '+VIEW.subject : f.title);
+  // sub-folders (groups) inside this folder
+  let groupCards='', list=all;
+  if(VIEW.group) list=all.filter(p=>splitName(p.name).g===VIEW.group);
+  else {
+    const groups=[...new Set(all.map(p=>splitName(p.name).g).filter(Boolean))].sort(natCmp);
+    groupCards=groups.map(g=>{ const gl=all.filter(p=>splitName(p.name).g===g); return folderCard('📂', g, '', gl.length, doneCount(gl), Object.assign({group:g}, base)); }).join('');
+    list=all.filter(p=>!splitName(p.name).g);
+  }
+  $('listSub').textContent = all.length ? (VIEW.group ? `${list.length} paper${list.length>1?'s':''} · ${doneCount(list)} attempted` : `${all.length} paper${all.length>1?'s':''} · ${doneCount(all)} attempted`) : '';
+  if(!all.length){ grid.innerHTML='<div class="card empty" style="grid-column:1/-1">No papers in this folder yet. New papers will appear here soon.</div>'; return; }
+  if(VIEW.group) list=list.slice().sort((a,b)=>natCmp(splitName(a.name).t, splitName(b.name).t));
+  grid.classList.toggle('folder-grid', !!groupCards && !list.length);
+  grid.innerHTML = groupCards + list.map((p,k)=>{
     const a = ATTEMPTS[p.id];
     const foot = a
       ? `<span class="done-pill">✓ Attempted${a.score!==undefined&&a.score!==null&&a.score!==''?` · ${a.score}/${a.maxMarks}`:''}</span>
@@ -649,7 +665,7 @@ function renderPapers(){
          <button class="btn small green" type="button" data-open="${esc(p.id)}">Start Test →</button>`;
     return `<div class="card paper-card">
       <div class="pnum">Paper ${k+1}</div>
-      <h3>${esc(p.name)}</h3>
+      <h3>${esc(splitName(p.name).t)}</h3>
       <div class="meta">${[p.exam,p.subject].filter(Boolean).map(x=>`<span>${esc(x)}</span>`).join('')}
         <span>${p.questions} Questions</span><span>${p.durationMin} min</span><span>${p.maxMarks} Marks</span></div>
       <div class="foot">${foot}</div></div>`;
@@ -665,7 +681,7 @@ function renderResults(){
   $('listTitle').textContent='My Results';
   const list=Object.entries(ATTEMPTS).map(([id,a])=>{
     const p=PAPERS.find(x=>x.id===id)||{};
-    return {id, name:p.name||a.paperName||'Test paper', p, a};
+    return {id, name:showName(p.name||a.paperName||'Test paper'), p, a};
   }).sort((x,y)=>String(y.a.time||'').localeCompare(String(x.a.time||'')));
   $('listSub').textContent = list.length ? 'Open any test to see your full report, question-wise analysis and detailed solutions.' : '';
   if(!list.length){ $('paperGrid').innerHTML='<div class="card empty" style="grid-column:1/-1">You have not given any test yet. Open a folder and start a paper.</div>'; return; }
@@ -705,9 +721,9 @@ function usePaper(paper){
   MAXM=Q.reduce((s,q)=>s+posMark(q),0);
   HEAD=BRAND+(ST.exam?' — '+ST.exam:'');
   document.querySelectorAll('.js-tag').forEach(e=>e.textContent=(BRAND+(ST.exam?' · '+ST.exam:'')).toUpperCase());
-  document.querySelectorAll('.js-head').forEach(e=>e.textContent=ST.paperName||HEAD);
+  document.querySelectorAll('.js-head').forEach(e=>e.textContent=(ST.paperName?showName(ST.paperName):HEAD));
   document.querySelectorAll('.js-sub').forEach(e=>e.textContent=[ST.exam,ST.subject,N+' Questions','Max. Marks '+MAXM].filter(Boolean).join(' · '));
-  $('solHead').textContent='Solutions — '+(ST.paperName||BRAND);
+  $('solHead').textContent='Solutions — '+(ST.paperName?showName(ST.paperName):BRAND);
 }
 function freshState(){
   return { cur:0, ans:Array(N).fill(null), mark:Array(N).fill(false), visited:Array(N).fill(false), time:Array(N).fill(0),
@@ -731,7 +747,7 @@ async function openPaper(id){
    ===================================================================== */
 function renderInstructions(){
   $('insName').textContent=USER.name;
-  $('insTitle').textContent=(ST.paperName||'Test')+' — Instructions';
+  $('insTitle').textContent=(ST.paperName?showName(ST.paperName):'Test')+' — Instructions';
   $('agree').checked=false; $('startBtn').disabled=true;
   $('facts').innerHTML=`<div class="fact"><b>${ST.durationMin} min</b><span>Duration</span></div>
     <div class="fact"><b>${N}</b><span>Questions</span></div>
@@ -1043,7 +1059,7 @@ function renderReport(){
   <div class="noprint" style="margin-bottom:14px"><button class="btn light small" type="button" onclick="backToPapers()">← All Papers</button></div>
   <div class="rep-top">
     <h1>Performance Report</h1>
-    <div style="opacity:.9">${esc([ST.paperName, HEAD, ST.subject].filter(Boolean).join(' · '))}</div>
+    <div style="opacity:.9">${esc([ST.paperName?showName(ST.paperName):'', HEAD, ST.subject].filter(Boolean).join(' · '))}</div>
     <div class="who">
       <div><span class="lbl">Candidate Name</span><b>${esc(USER.name)}</b></div>
       <div><span class="lbl">Email</span><b>${esc(USER.email)}</b></div>

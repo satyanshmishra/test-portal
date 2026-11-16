@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Live Quiz — Host</title>
+<link rel="stylesheet" href="assets/live.css">
+<script src="config.js"></script>
+<script src="assets/supabase.js"></script>
+<script src="assets/qrcode.js"></script>
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']], packages: {'[+]': ['mhchem']} },
+  svg: { fontCache: 'global' }, options: { enableMenu: false }, startup: { typeset: false }
+};
+</script>
+<script src="assets/mathjax-tex-svg.js" async></script>
+<script src="assets/live-common.js"></script>
+<style>
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 20px;border-bottom:1px solid var(--line);background:rgba(0,0,0,.25)}
+.topbar .t{font-weight:800}
+.tools{display:flex;gap:8px;align-items:center}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+.tabs{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.tab{background:var(--card2);border:1.5px solid var(--line);color:var(--muted);padding:9px 16px;border-radius:10px;font-weight:700}
+.tab.on{background:var(--cyan);color:#0a0f1f;border-color:var(--cyan)}
+.qlist{max-height:46vh;overflow:auto;border:1px solid var(--line);border-radius:12px}
+.qrow{display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid var(--line);font-size:14px}
+.qrow:last-child{border-bottom:0}
+.qrow .tx{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--muted)}
+.qrow input[type=number]{width:70px;padding:6px;border-radius:8px;border:1px solid var(--line);background:var(--bg2);color:var(--ink);text-align:center}
+.qrow input[type=checkbox]{width:18px;height:18px}
+.chk{display:flex;align-items:center;gap:8px;font-weight:600;margin:6px 0}
+.chk input{width:18px;height:18px}
+/* lobby */
+.lobby{display:grid;grid-template-columns:1.2fr .8fr;gap:22px;align-items:center}
+.codebig{font-size:clamp(60px,9vw,130px);font-weight:900;letter-spacing:.12em;color:var(--yel);line-height:1}
+.qr{background:#fff;border-radius:18px;padding:14px;display:inline-block}
+.qr img{display:block;width:min(30vw,260px);height:auto;image-rendering:pixelated}
+.names{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:18px}
+.nm{background:var(--card2);border:1px solid var(--line);padding:8px 16px;border-radius:30px;font-weight:700;animation:pop .5s ease-out}
+@media (max-width:820px){ .lobby{grid-template-columns:1fr;text-align:center} }
+/* question */
+.qtop{display:flex;align-items:center;gap:18px}
+.qcard{flex:1;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px 24px;min-height:120px}
+.stat{display:flex;flex-direction:column;align-items:center;min-width:110px}
+.stat b{font-size:40px;font-weight:900;color:var(--cyan);line-height:1}
+.stat span{color:var(--muted);font-weight:700;font-size:13px}
+.distrow{display:flex;align-items:center;gap:12px;margin:8px 0}
+.distrow .lab{width:54px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:20px;color:#fff}
+.distrow .bar{flex:1;height:44px;border-radius:10px;background:var(--card2);overflow:hidden;position:relative}
+.distrow .bar i{position:absolute;left:0;top:0;bottom:0;border-radius:10px;width:0;transition:width 1s cubic-bezier(.2,.9,.2,1)}
+.distrow .n{width:70px;text-align:right;font-weight:900;font-size:22px}
+.sol{margin-top:16px;padding:16px 20px;border-radius:14px;background:var(--card2);border:1px solid var(--line);display:none}
+.sol.on{display:block}
+.foot{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:18px;flex-wrap:wrap}
+</style>
+</head>
+<body>
+<div class="net" id="net">Reconnecting…</div>
+
+<div class="topbar" id="topbar">
+  <div><div class="brand">Live Quiz · Host</div><div class="t" id="tbTitle">Satyansh's Test Papers</div></div>
+  <div class="tools">
+    <span class="pill" id="tbCode" style="display:none"></span>
+    <span class="pill" id="tbPlayers" style="display:none"></span>
+    <button class="btn ghost sm" id="sndBtn" title="Sound on/off">🔊</button>
+    <button class="btn ghost sm" id="fsBtn" title="Full screen (F)">⛶</button>
+  </div>
+</div>
+
+<!-- login -->
+<section class="screen" id="sLogin">
+  <div class="center"><div style="width:100%;max-width:440px">
+    <h1>Host login</h1>
+    <p class="muted">Log in with your own account (the email you added as quiz host).</p>
+    <form class="card" id="loginForm" novalidate style="margin-top:14px">
+      <div id="loginMsg"></div>
+      <div class="field"><label for="lEmail">Email</label><input id="lEmail" type="email" autocomplete="email"></div>
+      <div class="field"><label for="lPass">Password</label><input id="lPass" type="password" autocomplete="current-password"></div>
+      <button class="btn big" style="width:100%" type="submit">Log in →</button>
+    </form>
+  </div></div>
+</section>
+
+<!-- setup -->
+<section class="screen" id="sSetup">
+  <div class="wrap">
+    <div id="resumeBox"></div>
+    <h1>Create a live quiz</h1>
+    <div class="card" style="margin-bottom:16px">
+      <h3>1 · Choose questions</h3>
+      <div class="tabs"><button class="tab on" data-src="portal">From the Test Portal</button><button class="tab" data-src="file">Upload JSON</button><button class="tab" data-src="paste">Paste JSON</button></div>
+      <div id="srcPortal">
+        <div class="grid2">
+          <div class="field"><label>Admin password (Test Portal admin)</label><input id="admPass" type="password" autocomplete="off"></div>
+          <div class="field" style="display:flex;align-items:flex-end"><button class="btn" id="loadPapersBtn">Load my papers</button></div>
+        </div>
+        <div class="field" id="paperPick" style="display:none"><label>Paper</label><select id="paperSel"></select></div>
+      </div>
+      <div id="srcFile" style="display:none"><div class="field"><label>Paper JSON file (same format as the Test Portal)</label><input type="file" id="fileIn" accept=".json,application/json"></div></div>
+      <div id="srcPaste" style="display:none"><div class="field"><label>Paste paper JSON</label><textarea id="pasteIn" rows="6" placeholder='{"questions":[...]}'></textarea></div><button class="btn sm" id="pasteBtn">Use this JSON</button></div>
+      <div id="srcMsg"></div>
+      <div id="qPick" style="display:none;margin-top:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
+          <b id="qCount"></b>
+          <div class="tools"><button class="btn ghost sm" id="allBtn">Select all</button><button class="btn ghost sm" id="noneBtn">Clear</button>
+            <button class="btn ghost sm" id="rand10Btn">Random 10</button></div>
+        </div>
+        <div class="qlist" id="qList"></div>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:16px">
+      <h3>2 · Settings</h3>
+      <div class="grid2">
+        <div class="field"><label>Quiz title (students see this)</label><input id="title" maxlength="120" placeholder="e.g. Definite Integration — Live"></div>
+        <div class="field"><label>Time per MCQ (seconds)</label><input id="tMcq" type="number" min="5" max="900" value="30"></div>
+        <div class="field"><label>Time per numerical (seconds)</label><input id="tNum" type="number" min="5" max="900" value="60"></div>
+        <div class="field"><label>Get-ready countdown (seconds)</label><input id="tLead" type="number" min="0" max="10" value="3"></div>
+      </div>
+      <label class="chk"><input type="checkbox" id="optStreak" checked> Streak bonus (+100 for every correct answer in a row, up to +500)</label>
+      <label class="chk"><input type="checkbox" id="optNeg"> Negative marking: wrong answer loses <input id="negPts" type="number" value="250" min="50" max="1000" style="width:80px;padding:5px;border-radius:8px;border:1px solid var(--line);background:var(--bg2);color:var(--ink)"> points</label>
+      <label class="chk"><input type="checkbox" id="optAuto" checked> Reveal automatically when everyone has answered</label>
+      <label class="chk"><input type="checkbox" id="optShuffle"> Shuffle question order</label>
+      <p class="muted" style="font-size:14px;margin:8px 0 0">Points: correct answer gives 1000 if answered instantly, down to 500 at the last second. No answer = 0.</p>
+    </div>
+    <div id="createMsg"></div>
+    <button class="btn big yel" id="createBtn" disabled>Create quiz & open lobby →</button>
+    <p class="muted" style="margin-top:18px;font-size:14px">Students join at <b id="joinUrl1" style="color:var(--ink)"></b>. Share this screen in Google Meet.</p>
+  </div>
+</section>
+
+<!-- lobby -->
+<section class="screen" id="sLobby">
+  <div class="wrap" style="flex:1;display:flex;flex-direction:column;justify-content:center">
+    <div class="lobby">
+      <div>
+        <div class="brand" style="font-size:16px">Join on your phone</div>
+        <p style="font-size:clamp(18px,2.2vw,28px);margin:10px 0 4px">Open <b style="color:var(--cyan)" id="joinUrl2"></b></p>
+        <p class="muted" style="font-size:20px;margin:0 0 6px">and enter the code</p>
+        <div class="codebig" id="codeBig"></div>
+        <p class="muted" style="margin-top:12px">Log in with your Test Portal account.</p>
+      </div>
+      <div style="text-align:center"><div class="qr" id="qrBox"></div><p class="muted">Scan to join</p></div>
+    </div>
+    <div style="text-align:center;margin-top:20px">
+      <span class="pill" style="font-size:18px;padding:8px 18px">👥 <b id="lobbyCount" style="color:var(--ink)">0</b>&nbsp;joined</span>
+      <div class="names" id="names"></div>
+      <div style="margin-top:24px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+        <button class="btn big grn" id="startBtn">Start quiz ▶</button>
+        <button class="btn ghost" id="cancelBtn">End & start over</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- question / reveal -->
+<section class="screen" id="sQ">
+  <div class="wrap" style="flex:1;display:flex;flex-direction:column">
+    <div id="qStage" style="flex:1;display:flex;flex-direction:column"></div>
+  </div>
+</section>
+
+<!-- leaderboard -->
+<section class="screen" id="sBoard">
+  <div class="wrap" style="flex:1;display:flex;flex-direction:column">
+    <div style="text-align:center;margin-bottom:16px"><div class="brand" style="font-size:16px">Leaderboard</div><h1 id="boardTitle">After question 1</h1></div>
+    <div class="board" id="board"></div>
+    <div class="foot" style="justify-content:center;margin-top:24px"><button class="btn big yel" id="nextBtn">Next question →</button></div>
+  </div>
+</section>
+
+<!-- final -->
+<section class="screen" id="sFinal">
+  <div class="wrap">
+    <div style="text-align:center"><div class="brand" style="font-size:16px">Final results</div><h1 id="finalTitle"></h1></div>
+    <div class="podium" id="podium"></div>
+    <div class="card" style="margin-top:24px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+        <h3 style="margin:0">All players</h3>
+        <div class="tools"><button class="btn sm" id="csvBtn">⬇ Download results (CSV)</button><button class="btn ghost sm" id="newBtn">New quiz</button></div>
+      </div>
+      <div style="overflow-x:auto"><table class="tbl" id="finalTbl"></table></div>
+    </div>
+  </div>
+</section>
+
+<script>
+const { CFG, $, esc, LS, SB, rpc, serverNow, setOffsetFrom, typeset, SFX, setSound, OPT, nf, ord, confetti } = LIVE;
+const API = (CFG.API_URL||'').trim();
+const JOIN_URL = location.origin + location.pathname.replace(/live-host\.html.*$/,'') + 'live.html';
+const JOIN_SHORT = JOIN_URL.replace(/^https?:\/\//,'').replace(/\/live\.html$/,'/live');
+let H = null;          // host state: {id, code, title, qs:[...], settings, idx}
+let PAPER = null, PICK = [];
+let STATS = { players:0, answered:0, names:[] }, STATS_T = null, QTIMER = null, REVEALING = false, RESULTS = null;
+let PRIMARY = null;    // what Space / Enter / → does on the current screen
+
+function show(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('on', s.id===id)); window.scrollTo(0,0); }
+function msg(el, text, kind){ $(el).innerHTML = text ? `<div class="msg ${kind||'bad'}">${esc(text)}</div>` : ''; }
+function save(){ LS.set('live_host', H); }
+function topbar(){
+  $('tbTitle').textContent = H ? H.title : "Satyansh's Test Papers";
+  $('tbCode').style.display = H ? '' : 'none'; if(H) $('tbCode').innerHTML = 'Code <b style="color:var(--yel)">'+H.code+'</b>';
+  $('tbPlayers').style.display = H ? '' : 'none'; $('tbPlayers').textContent = '👥 '+STATS.players;
+}
+$('joinUrl1').textContent = JOIN_URL;
+$('sndBtn').onclick = ()=>{ setSound(!LIVE.sound); $('sndBtn').textContent = LIVE.sound?'🔊':'🔇'; };
+$('sndBtn').textContent = LIVE.sound?'🔊':'🔇';
+function fullscreen(){ const d=document; if(!d.fullscreenElement) d.documentElement.requestFullscreen && d.documentElement.requestFullscreen().catch(()=>{}); else d.exitFullscreen(); }
+$('fsBtn').onclick = fullscreen;
+document.addEventListener('keydown', e=>{
+  if(/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return;
+  if(e.key==='f' || e.key==='F'){ fullscreen(); }
+  if((e.key===' ' || e.key==='Enter' || e.key==='ArrowRight') && PRIMARY){ e.preventDefault(); PRIMARY(); }
+});
+
+/* ================= LOGIN ================= */
+$('loginForm').addEventListener('submit', async e=>{
+  e.preventDefault(); msg('loginMsg','');
+  const { error } = await SB.auth.signInWithPassword({ email:$('lEmail').value.trim(), password:$('lPass').value });
+  if(error) return msg('loginMsg', 'Login failed: '+error.message);
+  checkHost();
+});
+async function checkHost(){
+  try{
+    const ok = await rpc('live_is_admin');
+    if(!ok){ show('sLogin'); return msg('loginMsg','This account is not set as quiz host yet. Run the one-line "insert into live_admins" command in Supabase with this email.'); }
+  }catch(e){ show('sLogin'); return msg('loginMsg', e.message); }
+  const saved = LS.get('live_host', null);
+  if(saved && saved.id){
+    const { data } = await SB.from('live_sessions').select('status,q_index,title,code').eq('id', saved.id).maybeSingle();
+    if(data && data.status!=='ended'){
+      $('resumeBox').innerHTML = `<div class="msg good" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+        <span>A quiz is still running: <b>${esc(data.title)}</b> (code ${esc(data.code)})</span>
+        <span class="tools"><button class="btn grn sm" id="resumeBtn">Resume it</button><button class="btn ghost sm" id="dropBtn">End it</button></span></div>`;
+      $('resumeBtn').onclick = ()=>resume(saved, data);
+      $('dropBtn').onclick = async ()=>{ try{ await rpc('live_stage',{p_session:saved.id,p_status:'ended'}); }catch(e){} LS.del('live_host'); $('resumeBox').innerHTML=''; };
+    } else LS.del('live_host');
+  }
+  show('sSetup'); PRIMARY=null;
+}
+
+/* ================= SETUP: load questions ================= */
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on', x===t));
+  $('srcPortal').style.display = t.dataset.src==='portal'?'':'none';
+  $('srcFile').style.display = t.dataset.src==='file'?'':'none';
+  $('srcPaste').style.display = t.dataset.src==='paste'?'':'none';
+});
+async function admin(op, extra){
+  const r = await fetch(API,{method:'POST',redirect:'follow',headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body:JSON.stringify(Object.assign({action:'admin',op,password:$('admPass').value},extra||{}))});
+  const j = await r.json(); if(!j.ok) throw new Error(j.error||'Request failed'); return j;
+}
+try{ const p=sessionStorage.getItem('live_adm'); if(p) $('admPass').value=p; }catch(e){}
+$('loadPapersBtn').onclick = async ()=>{
+  msg('srcMsg',''); $('loadPapersBtn').disabled=true; $('loadPapersBtn').textContent='Loading…';
+  try{
+    const j = await admin('papers'); try{ sessionStorage.setItem('live_adm',$('admPass').value); }catch(e){}
+    const list = (j.papers||[]);
+    $('paperSel').innerHTML = '<option value="">— choose a paper —</option>' + list.map(p=>`<option value="${esc(p.id)}">${esc(p.name||p.id)}${p.active?'':' (hidden)'}</option>`).join('');
+    $('paperPick').style.display='';
+  }catch(e){ msg('srcMsg', e.message); }
+  $('loadPapersBtn').disabled=false; $('loadPapersBtn').textContent='Load my papers';
+};
+$('paperSel').onchange = async ()=>{
+  const id=$('paperSel').value; if(!id) return;
+  msg('srcMsg','Loading paper…','good');
+  try{ const j = await admin('getPaper',{id}); usePaper(j.paper, $('paperSel').selectedOptions[0].textContent.replace(/ \(hidden\)$/,'')); }
+  catch(e){ msg('srcMsg', e.message); }
+};
+$('fileIn').onchange = async e=>{
+  const f=e.target.files[0]; if(!f) return;
+  try{ usePaper(JSON.parse(await f.text()), f.name.replace(/\.json$/i,'')); }catch(err){ msg('srcMsg','This file is not valid paper JSON: '+err.message); }
+};
+$('pasteBtn').onclick = ()=>{ try{ usePaper(JSON.parse($('pasteIn').value), 'Live Quiz'); }catch(err){ msg('srcMsg','Not valid JSON: '+err.message); } };
+
+const plain = h => { const d=document.createElement('div'); d.innerHTML=String(h||''); return (d.textContent||'').replace(/\s+/g,' ').trim(); };
+function qType(q){ return q.type==='mcq' ? 'mcq' : 'num'; }
+function usePaper(paper, name){
+  const qs = (paper && paper.questions) || [];
+  const usable = [];
+  qs.forEach((q,i)=>{
+    if(q.bonus) return;
+    if(q.type==='mcq' && (!Array.isArray(q.opts) || q.ans===undefined || q.ans===null || q.ans==='')) return;
+    if(q.type!=='mcq' && (q.ans===undefined || q.ans===null || q.ans==='' || isNaN(parseFloat(q.ans)))) return;
+    usable.push(Object.assign({}, q, { _n:i+1 }));
+  });
+  if(!usable.length) return msg('srcMsg','No usable questions found in this paper.');
+  PAPER = usable; PICK = usable.map(()=>true);
+  if(!$('title').value) $('title').value = (paper.settings && paper.settings.paperName) ? String(paper.settings.paperName).split(' | ').pop() : name;
+  msg('srcMsg', `Loaded ${usable.length} questions`+(qs.length>usable.length?` (${qs.length-usable.length} skipped: bonus or no answer key)`:'')+'.','good');
+  renderPick(); $('qPick').style.display='';
+}
+function renderPick(){
+  $('qList').innerHTML = PAPER.map((q,i)=>`<label class="qrow"><input type="checkbox" data-i="${i}" ${PICK[i]?'checked':''}>
+    <b style="width:42px">Q${q._n}</b><span class="pill" style="padding:2px 8px">${qType(q)==='mcq'?'MCQ':'Num'}</span>
+    <span class="tx">${esc(plain(q.q).slice(0,140))}</span>
+    <span class="muted" style="font-size:12px">sec</span><input type="number" min="5" max="900" data-t="${i}" placeholder="auto" value="${q._t||''}"></label>`).join('');
+  $('qList').querySelectorAll('input[type=checkbox]').forEach(c=>c.onchange=()=>{ PICK[+c.dataset.i]=c.checked; countPick(); });
+  $('qList').querySelectorAll('input[type=number]').forEach(c=>c.onchange=()=>{ PAPER[+c.dataset.t]._t = c.value?Math.max(5,Math.min(900,+c.value)):''; });
+  countPick();
+}
+function countPick(){ const n=PICK.filter(Boolean).length; $('qCount').textContent = n+' of '+PAPER.length+' questions selected'; $('createBtn').disabled = !n; }
+$('allBtn').onclick=()=>{ PICK=PAPER.map(()=>true); renderPick(); };
+$('noneBtn').onclick=()=>{ PICK=PAPER.map(()=>false); renderPick(); };
+$('rand10Btn').onclick=()=>{ const idx=PAPER.map((_,i)=>i).sort(()=>Math.random()-.5).slice(0,10); PICK=PAPER.map((_,i)=>idx.includes(i)); renderPick(); };
+
+$('createBtn').onclick = async ()=>{
+  msg('createMsg','');
+  let qs = PAPER.filter((_,i)=>PICK[i]);
+  if($('optShuffle').checked) qs = qs.slice().sort(()=>Math.random()-.5);
+  const tM=Math.max(5,+$('tMcq').value||30), tN=Math.max(5,+$('tNum').value||60);
+  qs = qs.map(q=>({ type:qType(q), q:q.q, opts:q.type==='mcq'?q.opts:null, ans:String(q.ans), tol:q.tol!=null?q.tol:null,
+                    sol:q.sol||'', dur:q._t || (q.type==='mcq'?tM:tN), n:q._n }));
+  const settings = { streak:$('optStreak').checked, neg:$('optNeg').checked, negPts:Math.abs(+$('negPts').value||250) };
+  const title = $('title').value.trim() || 'Live Quiz';
+  $('createBtn').disabled=true;
+  try{
+    const r = await rpc('live_create', { p_title:title, p_keys: qs.map(q=>({type:q.type, ans:q.ans, tol:q.tol})), p_settings:settings });
+    H = { id:r.id, code:r.code, title, qs, settings, idx:-1, lead:Math.max(0,Math.min(10,+$('tLead').value||0)), auto:$('optAuto').checked };
+    save(); openLobby();
+  }catch(e){ msg('createMsg', e.message); }
+  $('createBtn').disabled=false;
+};
+
+/* ================= LOBBY ================= */
+function openLobby(){
+  topbar(); show('sLobby');
+  $('codeBig').textContent = H.code.slice(0,3)+' '+H.code.slice(3);
+  $('joinUrl2').textContent = JOIN_SHORT;
+  try{ const qr = qrcode(0,'M'); qr.addData(JOIN_URL+'?code='+H.code); qr.make(); $('qrBox').innerHTML = qr.createImgTag(8, 8); }catch(e){ $('qrBox').textContent=''; }
+  STATS.names = []; $('names').innerHTML=''; startStats(1500);
+  PRIMARY = ()=>$('startBtn').click();
+}
+function drawNames(list){
+  const box=$('names'), have=box.children.length;
+  if(list.length < have){ box.innerHTML=''; }
+  for(let i=box.children.length;i<list.length;i++){ const s=document.createElement('span'); s.className='nm'; s.textContent=list[i]; box.appendChild(s); if(i>=have && have>0) SFX.join(); }
+  $('lobbyCount').textContent = list.length;
+}
+$('startBtn').onclick = ()=>{ if(!H) return; stopStats(); showQuestion(0); };
+$('cancelBtn').onclick = async ()=>{ if(!confirm('End this quiz?')) return; try{ await rpc('live_stage',{p_session:H.id,p_status:'ended'}); }catch(e){} stopStats(); LS.del('live_host'); H=null; topbar(); show('sSetup'); };
+
+/* host stats polling (players joined, answers in) */
+function startStats(ms){ stopStats(); const f=async()=>{ try{ const s=await rpc('live_host_stats',{p_session:H.id},0); STATS=s; $('net').classList.remove('on'); onStats(); }catch(e){ $('net').classList.add('on'); } }; f(); STATS_T=setInterval(f, ms); }
+function stopStats(){ clearInterval(STATS_T); STATS_T=null; }
+function onStats(){
+  topbar();
+  if($('sLobby').classList.contains('on')) drawNames(STATS.names||[]);
+  if($('aCount')) { $('aCount').textContent = STATS.answered; $('pCount').textContent = STATS.players; }
+  if(H && H.auto && $('sQ').classList.contains('on') && QTIMER && STATS.players>0 && STATS.answered>=STATS.players) reveal();
+}
+
+/* ================= QUESTION ================= */
+function optHtml(q, cls){
+  return `<div class="opts" style="margin-top:16px">${(q.opts||[]).map((o,k)=>`<div class="opt ${cls?cls(k):''}" style="background:${OPT[k%6].c}"><span class="sym">${OPT[k%6].s}</span><span class="otext">${o}</span>${cls&&cls(k)==='right'?'<span class="tick">✔</span>':''}</div>`).join('')}</div>`;
+}
+async function showQuestion(i, resumeTimes){
+  H.idx=i; save(); REVEALING=false; clearInterval(QTIMER); QTIMER=null; PRIMARY=null;
+  const q=H.qs[i], st=$('qStage'); show('sQ');
+  let times = resumeTimes;
+  if(!times){
+    try{ times = await rpc('live_show', { p_session:H.id, p_index:i, p_public:{type:q.type, q:q.q, opts:q.opts, n:i+1}, p_dur:q.dur, p_lead:H.lead }); }
+    catch(e){ st.innerHTML=`<div class="center"><div class="msg bad">${esc(e.message)}</div><button class="btn" onclick="showQuestion(${i})">Try again</button></div>`; return; }
+    setOffsetFrom(times.now);
+  }
+  const S0=new Date(times.starts_at).getTime(), E0=new Date(times.ends_at).getTime();
+  startStats(1000);
+  // get ready
+  let lastShown=null;
+  const ready=()=>{ const left=Math.ceil((S0-serverNow())/1000);
+    if(left>0){ if(left!==lastShown){ lastShown=left; SFX.count();
+        st.innerHTML=`<div class="center"><p class="muted" style="font-size:26px;margin:0">Question ${i+1} of ${H.qs.length}</p><div class="count">${left}</div><p style="font-size:22px">${q.type==='mcq'?'Multiple choice':'Numerical answer'} · ${q.dur} seconds</p></div>`; }
+      return; }
+    clearInterval(QTIMER); SFX.go(); drawQ();
+  };
+  const drawQ=()=>{
+    st.innerHTML = `<div class="qtop">
+        <div class="ring" id="ring"><svg width="110" height="110"><circle cx="55" cy="55" r="48" stroke="#2a3760" stroke-width="10" fill="none"/>
+          <circle id="ringC" cx="55" cy="55" r="48" stroke="#35e0ff" stroke-width="10" fill="none" stroke-linecap="round" stroke-dasharray="301.6" stroke-dashoffset="0"/></svg><b id="ringT"></b></div>
+        <div class="qcard"><div class="muted" style="font-weight:800;margin-bottom:6px">Question ${i+1} of ${H.qs.length}</div><div class="qtext">${q.q}</div></div>
+        <div class="stat"><b><span id="aCount">${STATS.answered||0}</span></b><span>answers of <span id="pCount">${STATS.players}</span></span></div>
+      </div>
+      ${q.type==='mcq' ? optHtml(q) : `<div class="center" style="flex:0;padding:30px"><span class="pill" style="font-size:20px;padding:12px 22px">🔢 Type your answer on your phone</span></div>`}
+      <div class="foot"><span class="muted">Space / → = stop & reveal</span><button class="btn pink" id="stopBtn">Stop & reveal answer</button></div>`;
+    typeset(st);
+    $('stopBtn').onclick = reveal; PRIMARY = reveal;
+    let lastSec=null;
+    const tick=()=>{ const left=Math.max(0,E0-serverNow()), sec=Math.ceil(left/1000), tot=E0-S0;
+      if($('ringT')){ $('ringT').textContent=sec; $('ringC').setAttribute('stroke-dashoffset', 301.6*(1-left/tot)); $('ring').classList.toggle('low', sec<=5);
+        $('ringC').setAttribute('stroke', sec<=5?'#ff5c8a':sec<=10?'#ffd54a':'#35e0ff'); }
+      if(sec!==lastSec){ lastSec=sec; if(sec<=5 && sec>0) SFX.tick(); }
+      if(left<=0){ clearInterval(QTIMER); setTimeout(reveal, 1200); }   // small grace for slow phones
+    };
+    tick(); QTIMER=setInterval(tick, 200);
+  };
+  if(serverNow()<S0){ ready(); QTIMER=setInterval(ready, 200); } else drawQ();
+}
+
+/* ================= REVEAL ================= */
+async function reveal(){
+  if(REVEALING) return; REVEALING=true; clearInterval(QTIMER); QTIMER=null; PRIMARY=null;
+  const i=H.idx, q=H.qs[i], st=$('qStage');
+  let r;
+  try{ r = await rpc('live_reveal', { p_session:H.id }); }
+  catch(e){ REVEALING=false; st.insertAdjacentHTML('beforeend', `<div class="msg bad">${esc(e.message)} <button class="btn sm" onclick="reveal()">Retry</button></div>`); return; }
+  stopStats();
+  const rv=r.reveal||{}; H.lastBoard=r.board; save();
+  SFX.ding();
+  const total=Math.max(1, rv.answered||0), pct = rv.answered ? Math.round(100*rv.correct/rv.answered) : 0;
+  let body='';
+  if(q.type==='mcq'){
+    const ans=Number(rv.ans);
+    body = optHtml(q, k=>k===ans?'right':'dim') +
+      `<div class="card" style="margin-top:16px">${(q.opts||[]).map((_,k)=>{ const n=(rv.dist||{})[String(k)]||0;
+        return `<div class="distrow"><div class="lab" style="background:${OPT[k%6].c}">${OPT[k%6].l}${k===ans?' ✔':''}</div>
+          <div class="bar"><i data-w="${100*n/total}" style="background:${OPT[k%6].c};opacity:${k===ans?1:.55}"></i></div><div class="n">${n}</div></div>`; }).join('')}</div>`;
+  }else{
+    const top = Object.entries(rv.dist||{}).sort((a,b)=>b[1]-a[1]).slice(0,6);
+    body = `<div class="card" style="margin-top:16px;text-align:center"><div class="muted" style="font-weight:800">Correct answer</div>
+      <div style="font-size:64px;font-weight:900;color:var(--grn)">${esc(rv.ans)}</div>
+      ${top.length?`<div style="max-width:640px;margin:10px auto 0;text-align:left">${top.map(([a,n])=>{ const ok=Math.abs(parseFloat(a)-parseFloat(rv.ans))<=(rv.tol!=null?Number(rv.tol):0.001)+1e-9;
+        return `<div class="distrow"><div class="lab" style="width:110px;background:${ok?'var(--ok)':'#5b6584'}">${esc(a)}</div><div class="bar"><i data-w="${100*n/total}" style="background:${ok?'var(--ok)':'#5b6584'}"></i></div><div class="n">${n}</div></div>`; }).join('')}</div>`:''}</div>`;
+  }
+  const last = i>=H.qs.length-1;
+  st.innerHTML = `<div class="qtop"><div class="qcard"><div class="muted" style="font-weight:800;margin-bottom:6px">Question ${i+1} of ${H.qs.length}</div><div class="qtext">${q.q}</div></div>
+      <div class="stat"><b style="color:var(--grn)">${pct}%</b><span>correct</span></div>
+      <div class="stat"><b>${rv.answered||0}</b><span>answered of ${rv.players||0}</span></div></div>
+    ${body}
+    ${rv.fastest ? `<div style="text-align:center;margin-top:14px;font-size:20px">⚡ Fastest correct: <b style="color:var(--yel)">${esc(rv.fastest.name)}</b> <span class="muted">(${(rv.fastest.ms/1000).toFixed(1)} s)</span></div>`:''}
+    <div class="sol" id="solBox"><b>Solution</b><div class="qtext" style="font-size:20px;margin-top:8px">${q.sol||''}</div></div>
+    <div class="foot">${q.sol?'<button class="btn ghost" id="solBtn">📖 Show solution</button>':'<span></span>'}
+      <button class="btn big yel" id="toBoard">${last?'Final results 🏆':'Leaderboard →'}</button></div>`;
+  typeset(st);
+  requestAnimationFrame(()=>setTimeout(()=>st.querySelectorAll('.bar i').forEach(b=>b.style.width=b.dataset.w+'%'),60));
+  if($('solBtn')) $('solBtn').onclick=()=>{ $('solBox').classList.toggle('on'); $('solBtn').textContent=$('solBox').classList.contains('on')?'Hide solution':'📖 Show solution'; };
+  $('toBoard').onclick = last ? finish : showBoard; PRIMARY = $('toBoard').onclick;
+}
+
+/* ================= LEADERBOARD ================= */
+async function showBoard(){
+  PRIMARY=null;
+  try{ await rpc('live_stage', { p_session:H.id, p_status:'board' }); }catch(e){}
+  show('sBoard'); $('boardTitle').textContent = 'After question '+(H.idx+1)+' of '+H.qs.length;
+  const rows=(H.lastBoard||[]).slice(0,10), box=$('board'), RH=72;
+  box.style.height=(Math.max(1,rows.length)*RH)+'px';
+  const prevOrder = rows.slice().sort((a,b)=>(a.prev||999)-(b.prev||999));
+  box.innerHTML = rows.map(r=>{ const d=r.prev?r.prev-r.rank:0;
+    return `<div class="brow g${r.rank}" data-rank="${r.rank}" style="top:${prevOrder.indexOf(r)*RH}px">
+      <span class="rk">${r.rank}</span><span class="bn">${esc(r.name)} ${r.streak>=2?`<span class="fire">🔥${r.streak}</span>`:''}</span>
+      <span class="sc">${nf(r.score)}</span><span class="mv ${d>0?'up':d<0?'down':''}">${d>0?'▲'+d:d<0?'▼'+(-d):''}</span></div>`; }).join('') ||
+    '<p class="muted" style="text-align:center">No players yet.</p>';
+  setTimeout(()=>{ box.querySelectorAll('.brow').forEach(el=>{ el.style.top=((+el.dataset.rank-1)*RH)+'px'; }); }, 700);
+  // ties share a rank number; keep rows from overlapping
+  setTimeout(()=>{ [...box.querySelectorAll('.brow')].sort((a,b)=>+a.dataset.rank-+b.dataset.rank).forEach((el,k)=>el.style.top=(k*RH)+'px'); }, 720);
+  const last = H.idx>=H.qs.length-1;
+  $('nextBtn').textContent = last ? 'Final results 🏆' : 'Next question →';
+  $('nextBtn').onclick = last ? finish : ()=>showQuestion(H.idx+1);
+  PRIMARY = $('nextBtn').onclick;
+}
+
+/* ================= FINAL ================= */
+async function finish(){
+  PRIMARY=null; stopStats();
+  try{ await rpc('live_stage', { p_session:H.id, p_status:'ended' }); }catch(e){}
+  show('sFinal'); $('finalTitle').textContent = H.title;
+  try{ RESULTS = await rpc('live_results', { p_session:H.id }); }catch(e){ RESULTS={players:[]}; }
+  const P = RESULTS.players||[];
+  const pod = (p,c)=> p ? `<div class="pod ${c}"><div class="who">${esc(p.name)}<div class="pts">${nf(p.score)} pts</div></div><div class="bar">${c==='p1'?'🥇':c==='p2'?'🥈':'🥉'}</div></div>` : `<div class="pod ${c}"></div>`;
+  $('podium').innerHTML = pod(P[1],'p2') + pod(P[0],'p1') + pod(P[2],'p3');
+  setTimeout(()=>{ SFX.fanfare(); confetti(4500); }, 2400);
+  $('finalTbl').innerHTML = `<thead><tr><th>Rank</th><th class="l">Name</th><th>Score</th><th>Correct</th><th>Answered</th><th>Avg time (correct)</th></tr></thead><tbody>` +
+    P.map(p=>`<tr><td><b>${p.rank||'—'}</b></td><td class="l">${esc(p.name)}</td><td style="color:var(--yel);font-weight:800">${nf(p.score)}</td>
+      <td>${p.correct} / ${H.qs.length}</td><td>${p.answered}</td><td>${p.avg_ms!=null?(p.avg_ms/1000).toFixed(1)+' s':'—'}</td></tr>`).join('') + '</tbody>';
+  LS.del('live_host');
+}
+$('csvBtn').onclick = ()=>{
+  if(!RESULTS) return;
+  const n=H?H.qs.length:(RESULTS.q_total||0), cell=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';
+  const head=['Rank','Name','Email','Score','Correct','Answered','Avg time correct (s)'];
+  for(let i=0;i<n;i++) head.push('Q'+(i+1)+' answer','Q'+(i+1)+' points');
+  const lines=[head.map(cell).join(',')];
+  (RESULTS.players||[]).forEach(p=>{
+    const row=[p.rank,p.name,p.email,p.score,p.correct,p.answered,p.avg_ms!=null?(p.avg_ms/1000).toFixed(1):''];
+    for(let i=0;i<n;i++){ const a=(p.answers||{})[String(i)]; const q=H&&H.qs[i];
+      row.push(a?(q&&q.type==='mcq'?(OPT[Number(a.a)%6]||{}).l:a.a)+(a.c?' ✔':' ✘'):'', a?a.p:''); }
+    lines.push(row.map(cell).join(','));
+  });
+  const blob=new Blob(['﻿'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download=(RESULTS.title||'live-quiz').replace(/[^\w\- ]+/g,'').trim()+' - results.csv'; a.click();
+};
+$('newBtn').onclick = ()=>{ H=null; RESULTS=null; topbar(); PICK=PAPER?PAPER.map(()=>true):[]; if(PAPER) renderPick(); show('sSetup'); };
+
+/* ================= RESUME after refresh ================= */
+async function resume(saved, row){
+  H = saved; topbar();
+  const { data } = await SB.from('live_sessions').select('status,q_index,starts_at,ends_at,board').eq('id', H.id).maybeSingle();
+  if(!data) return;
+  if(data.status==='lobby') return openLobby();
+  H.idx = data.q_index; H.lastBoard = data.board || H.lastBoard;
+  if(data.status==='question'){ const n=await rpc('live_now'); setOffsetFrom(n); return showQuestion(H.idx, {starts_at:data.starts_at, ends_at:data.ends_at}); }
+  if(data.status==='reveal'){ show('sQ'); REVEALING=false; return reveal(); }   // returns the stored reveal
+  if(data.status==='board') return showBoard();
+}
+
+/* ================= BOOT ================= */
+(async function(){
+  if(!SB){ show('sLogin'); return msg('loginMsg','Supabase is not configured in config.js'); }
+  const { data } = await SB.auth.getSession();
+  if(data.session) checkHost(); else show('sLogin');
+})();
+</script>
+</body>
+</html>

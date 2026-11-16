@@ -716,12 +716,17 @@ const secOf = id => SEC.find(s => s.id === id) || SEC[0];
 const posMark = q => Number(secOf(q.section).correct);
 const negMark = q => Number(secOf(q.section).wrong);
 const secRange = s => { const idx = Q.map((q, i) => q.section === s.id ? i : -1).filter(i => i >= 0); return idx.length ? [idx[0], idx[idx.length - 1]] : [0, -1]; };
+const hasAns = a => !(a === null || a === undefined || a === '');
+// "attempt any N" sections (JEE Main 2021-24 numericals): only N answers allowed / counted
+const secCap = s => (s && Number(s.maxAttempt) > 0) ? Number(s.maxAttempt) : 0;
+function secMax(s){ const n=Q.filter(q=>q.section===s.id).length, c=secCap(s); return (c?Math.min(c,n):n)*Number(s.correct); }
+function answeredIn(id, except){ return Q.reduce((t,q,i)=>t+(q.section===id&&i!==except&&hasAns(S.ans[i])?1:0),0); }
 const markTxt = s => `+${s.correct} for a correct answer, ${Number(s.wrong) < 0 ? '−' + Math.abs(s.wrong) : (Number(s.wrong) > 0 ? '+' + s.wrong : '0')} for an incorrect answer, 0 if unattempted`;
 
 function usePaper(paper){
   P=paper; ST=paper.settings||{}; SEC=paper.sections||[]; Q=paper.questions; N=Q.length;
   DURATION=(Number(ST.durationMin)||60)*60000; IDEAL=DURATION/N;
-  MAXM=Q.reduce((s,q)=>s+posMark(q),0);
+  MAXM=SEC.length?SEC.reduce((t,s)=>t+secMax(s),0):Q.reduce((s,q)=>s+posMark(q),0);
   HEAD=BRAND+(ST.exam?' — '+ST.exam:'');
   document.querySelectorAll('.js-tag').forEach(e=>e.textContent=(BRAND+(ST.exam?' · '+ST.exam:'')).toUpperCase());
   document.querySelectorAll('.js-head').forEach(e=>e.textContent=(ST.paperName?showName(ST.paperName):HEAD));
@@ -756,10 +761,11 @@ function renderInstructions(){
     <div class="fact"><b>${N}</b><span>Questions</span></div>
     <div class="fact"><b>${MAXM}</b><span>Maximum Marks</span></div>
     <div class="fact"><b>${SEC.length}</b><span>Section${SEC.length>1?'s':''}</span></div>`;
-  let g=`<li>The paper contains <b>${N} questions</b> in ${SEC.length} section${SEC.length>1?'s':''}. All questions are compulsory.</li>`;
+  let g=`<li>The paper contains <b>${N} questions</b> in ${SEC.length} section${SEC.length>1?'s':''}. ${SEC.some(secCap)?'':'All questions are compulsory.'}</li>`;
   SEC.forEach(s=>{const [a,b]=secRange(s);
     const d=s.type==='mcq'?'Multiple Choice Questions. Each question has options out of which <b>only one</b> is correct.':'Numerical Value questions. Type the answer in the answer box.';
-    g+=`<li><b>${esc(s.title)} (Q. ${a+1} to Q. ${b+1}):</b> ${d} <b>Marking:</b> ${markTxt(s)}.</li>`;});
+    const cap=secCap(s); const cd=cap?` <b>Answer any ${cap} of the ${b-a+1} questions</b> in this section; the answer box locks once ${cap} are answered (clear one to answer another).`:'';
+    g+=`<li><b>${esc(s.title)} (Q. ${a+1} to Q. ${b+1}):</b> ${d}${cd} <b>Marking:</b> ${markTxt(s)}.</li>`;});
   (P.instructions||[]).forEach(t=>{g+=`<li>${t}</li>`;});
   g+=`<li>The ${ST.durationMin}-minute countdown timer starts as soon as the first question appears. It is shown at the top-right of the screen along with the number of answered and unanswered questions.</li>
       <li>When the timer reaches 00:00, the test is <b>submitted automatically</b> and your result is shown.</li>
@@ -840,6 +846,7 @@ function renderQuestion(){
   const body=$('qBody'); body.innerHTML=h;
   if(q.type==='mcq'){
     body.querySelectorAll('.opt').forEach(b=>b.addEventListener('click',()=>{
+      const cs=secOf(q.section); if(secCap(cs)&&!hasAns(S.ans[i])&&answeredIn(q.section,i)>=secCap(cs)){alert('You have already answered '+secCap(cs)+' questions in this section. Clear one of them first.');return;}
       S.ans[i]=+b.dataset.k;
       body.querySelectorAll('.opt').forEach(x=>x.classList.toggle('sel',x===b));
       renderPalette();renderStats();saveActive();
@@ -849,6 +856,7 @@ function renderQuestion(){
     inp.addEventListener('input',()=>{
       const v=inp.value.trim();
       if(v===''){S.ans[i]=null;hint.textContent='Enter a number. Your answer is saved automatically as you type.';hint.classList.remove('bad');}
+      else if(secCap(secOf(q.section))&&!hasAns(S.ans[i])&&answeredIn(q.section,i)>=secCap(secOf(q.section))){inp.value='';S.ans[i]=null;hint.textContent='You have already answered '+secCap(secOf(q.section))+' questions in this section. Clear one of them to answer this question.';hint.classList.add('bad');}
       else if(/^-?\d+(\.\d+)?$/.test(v)){S.ans[i]=v;hint.textContent='✓ Answer saved: '+v;hint.classList.remove('bad');}
       else{S.ans[i]=null;hint.textContent='Only numbers are allowed (e.g. 12, -3 or 2.5). This response is not saved.';hint.classList.add('bad');}
       renderPalette();renderStats();saveActive();
@@ -929,6 +937,9 @@ function evaluate(){
     const ok=isCorrect(q,a);
     return {i,res:ok?'c':'w',marks:ok?posMark(q):negMark(q)};
   });
+  // "attempt any N": only the first N answered (or bonus) questions of such a section count
+  SEC.forEach(s=>{ const cap=secCap(s); if(!cap) return; let k=0;
+    S.R.forEach(r=>{ if(Q[r.i].section!==s.id||r.res==='u') return; if(++k>cap){ r.res='u'; r.marks=0; } }); });
 }
 function topicLists(){
   const uniq=a=>[...new Set(a)].filter(Boolean);

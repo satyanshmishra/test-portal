@@ -193,8 +193,15 @@ function getPaper_(id, allowHidden) {
 }
 function maxMarks_(paper) {
   var m = {};
+  var cnt = {};
   (paper.sections || []).forEach(function (s) { m[s.id] = Number(s.correct); });
-  return paper.questions.reduce(function (t, q) { return t + (m[q.section] || 0); }, 0);
+  paper.questions.forEach(function (q) { cnt[q.section] = (cnt[q.section] || 0) + 1; });
+  if (!(paper.sections || []).length) return paper.questions.reduce(function (t, q) { return t + 4; }, 0);
+  // "attempt any N" sections (JEE Main 2021-24 numericals) count only N questions
+  return (paper.sections || []).reduce(function (t, s) {
+    var n = cnt[s.id] || 0, cap = Number(s.maxAttempt) > 0 ? Number(s.maxAttempt) : 0;
+    return t + (cap ? Math.min(cap, n) : n) * Number(s.correct);
+  }, 0);
 }
 
 /* ------------------------------------------------------------------ */
@@ -236,9 +243,12 @@ function attemptDetail_(u, paperId) {
 /* Grade on the server too, so the sheet always has the true score */
 function grade_(paper, ans) {
   var sec = {}; (paper.sections || []).forEach(function (s) { sec[s.id] = s; });
-  var res = { score: 0, c: 0, w: 0, u: 0, marks: [] };
+  var res = { score: 0, c: 0, w: 0, u: 0, marks: [] }, used = {};
   paper.questions.forEach(function (q, i) {
     var a = ans[i], s = sec[q.section] || { correct: 4, wrong: -1 }, m = 0;
+    var cap = Number(s.maxAttempt) > 0 ? Number(s.maxAttempt) : 0;
+    var att = q.bonus || !(a === null || a === undefined || a === '');
+    if (cap && att) { used[q.section] = (used[q.section] || 0) + 1; if (used[q.section] > cap) { a = null; att = false; q = { section: q.section }; } }
     if (q.bonus) { res.c++; m = Number(s.correct); }          // NTA bonus question: full marks to everyone
     else if (a === null || a === undefined || a === '') { res.u++; }
     else {

@@ -279,7 +279,7 @@ $('secTable').addEventListener('input',e=>{const t=e.target;
   if(t.dataset.sc) DRAFT.sections[+t.dataset.sc].correct=Number(t.value);
   if(t.dataset.sw){ let v=Number(t.value); DRAFT.sections[+t.dataset.sw].wrong=v>0?-v:v; }
   updMax();});
-function updMax(){ const m={}; DRAFT.sections.forEach(s=>m[s.id]=Number(s.correct)||0); const el=$('maxM'); if(el) el.textContent=DRAFT.questions.reduce((t,q)=>t+(m[q.section]||0),0); }
+function updMax(){ const el=$('maxM'); if(!el) return; el.textContent=DRAFT.sections.reduce((t,s)=>{ const n=DRAFT.questions.filter(q=>q.section===s.id).length, c=Number(s.maxAttempt)>0?Number(s.maxAttempt):0; return t+(c?Math.min(c,n):n)*(Number(s.correct)||0); },0); }
 function renderKey(warn){
   const qs=DRAFT.questions;
   const key=qs.map((q,i)=>`<span>Q${i+1}: ${q.type==='mcq'?(LET[q.ans]||'?'):esc(q.ans)}</span>`).join('');

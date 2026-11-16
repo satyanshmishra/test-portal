@@ -13,6 +13,8 @@ What it does
                                                 name "Tests 01-25 | Full Syllabus Test 07"
   JEE MAIN 2026\\Full Papers (Retyped)\\JSON\\*.json (if present) -> folder "JEE Main 3-Hour",
                                                 sub-folder "JEE Main 2026 PYQ"
+  JEE MAIN 2025\\Full Papers (Retyped)\\JSON\\*.json (if present) -> folder "JEE Main 3-Hour",
+                                                sub-folder "JEE Main 2025 PYQ"
 No level is ever written in a name, so students do not see Level 1/2/3/4.
 
 The Web App URL is built in (same as the portal's config.js). The admin password is asked
@@ -49,12 +51,15 @@ def plan():
             if not m: print("  ! skipped (no test number):", f); continue
             n = int(m[-1]); a = (n - 1) // 25 * 25 + 1
             items.append((f, "full", f"Tests {a:02d}-{a+24:02d} | Full Syllabus Test {n:02d}"))
-    # JEE Main 2026 retyped papers
-    for f in sorted(glob.glob(os.path.join(HERE, "JEE MAIN 2026", "Full Papers (Retyped)", "JSON", "*.json"))):
-        p = json.load(open(f, encoding="utf-8"))
-        title = (p.get("settings") or {}).get("paperName") or os.path.splitext(os.path.basename(f))[0]
-        title = title.split(" | ")[-1]
-        items.append((f, "main3h", f"JEE Main 2026 PYQ | {title}"))
+    # JEE Main 2026 and 2025 retyped papers
+    for yr in ("2026", "2025", "2024"):
+        for f in sorted(glob.glob(os.path.join(HERE, f"JEE MAIN {yr}", "Full Papers (Retyped)", "JSON", "*.json"))):
+            p = json.load(open(f, encoding="utf-8"))
+            title = (p.get("settings") or {}).get("paperName") or os.path.splitext(os.path.basename(f))[0]
+            title = title.split(" | ")[-1]
+            if yr in ("2025", "2024"):
+                title = re.sub(r"^JEE Main \d{4}\s*[\u2013-]\s*", "", title)
+            items.append((f, "main3h", f"JEE Main {yr} PYQ | {title}"))
     return items
 
 def post(url, body):

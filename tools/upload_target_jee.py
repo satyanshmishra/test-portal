@@ -15,6 +15,8 @@ What it does
                                                 sub-folder "JEE Main 2026 PYQ"
   JEE MAIN 2025\\Full Papers (Retyped)\\JSON\\*.json (if present) -> folder "JEE Main 3-Hour",
                                                 sub-folder "JEE Main 2025 PYQ"
+  Practice Sheets\\<Topic>\\*.json        -> folder "Practice Sheets", sub-folder = topic,
+                                                name "<Topic> | Sheet 1" (number from the file name)
 No level is ever written in a name, so students do not see Level 1/2/3/4.
 
 The Web App URL is built in (same as the portal's config.js). The admin password is asked
@@ -60,6 +62,19 @@ def plan():
             if yr in ("2025", "2024"):
                 title = re.sub(r"^JEE Main \d{4}\s*[\u2013-]\s*", "", title)
             items.append((f, "main3h", f"JEE Main {yr} PYQ | {title}"))
+    # Practice sheets: Practice Sheets\<Topic>\*.json  (or Practice Sheets\<Topic>\JSON\*.json)
+    #   -> folder "Practice Sheets", sub-folder = topic, name "<Topic> | Sheet 1" (from the file name)
+    sroot = os.path.join(HERE, "Practice Sheets")
+    for d in sorted(glob.glob(os.path.join(sroot, "*"))):
+        if not os.path.isdir(d): continue
+        topic = nice_chapter(os.path.basename(d))
+        files = sorted(glob.glob(os.path.join(d, "*.json")) + glob.glob(os.path.join(d, "JSON", "*.json")),
+                       key=lambda x: [int(t) if t.isdigit() else t.lower() for t in re.split(r"(\d+)", os.path.basename(x))])
+        for f in files:
+            stem = os.path.splitext(os.path.basename(f))[0]
+            m = re.findall(r"\d+", stem)
+            title = f"Sheet {int(m[-1])}" if m else nice_chapter(stem)
+            items.append((f, "sheet", f"{topic} | {title}"))
     return items
 
 def post(url, body):

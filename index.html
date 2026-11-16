@@ -265,6 +265,27 @@ window.MathJax = {
   </div>
 </section>
 
+<!-- ================= PRACTICE SHEET ================= -->
+<section id="sheet" class="screen">
+  <header class="topbar appbar">
+    <div class="topbar-in">
+      <div class="tb-left"><div class="t1 js-brand-plain"></div><div class="t2">Practice Sheets</div></div>
+      <button class="btn small onbrand" id="sheetBack" type="button">← All Sheets</button>
+    </div>
+  </header>
+  <div class="sheet-bar" id="sheetBar">
+    <div class="sheet-bar-in">
+      <div class="sb-prog"><div class="sb-txt">Solved <b id="shSolved">0</b> / <b id="shTotal">0</b></div><div class="sb-track"><i id="shFill"></i></div></div>
+      <div class="sb-chips" id="shChips"></div>
+    </div>
+  </div>
+  <div class="wrap sheet-wrap">
+    <div class="card sheet-head" id="sheetHead"></div>
+    <div id="sheetBody"></div>
+    <div class="sheet-end" id="sheetEnd"></div>
+  </div>
+</section>
+
 <!-- ================= SUMMARY MODAL ================= -->
 <div class="modal" id="summaryModal" role="dialog" aria-modal="true" aria-labelledby="sumTitle">
   <div class="modal-card">
@@ -558,7 +579,8 @@ async function afterLogin(){
 const FOLDERS = (CFG.FOLDERS && CFG.FOLDERS.length) ? CFG.FOLDERS : [
   {id:'topic', title:'Topic-wise Papers', desc:'Chapter and topic tests', icon:'📘', bySubject:true},
   {id:'full', title:'Full Syllabus Papers', desc:'Tests on the complete syllabus', icon:'📚'},
-  {id:'main3h', title:'JEE Main 3-Hour Papers', desc:'Full-length papers in the JEE Main pattern', icon:'⏱️', allSubjects:true}
+  {id:'main3h', title:'JEE Main 3-Hour Papers', desc:'Full-length papers in the JEE Main pattern', icon:'⏱️', allSubjects:true},
+  {id:'sheet', title:'Practice Sheets', desc:'Tap an option, check instantly, see solutions', icon:'📝', practice:true}
 ];
 const SUBJECTS = (CFG.SUBJECTS && CFG.SUBJECTS.length) ? CFG.SUBJECTS : [{name:'Mathematics', show:true}];
 const shownSubjects = () => SUBJECTS.filter(s=>s.show);
@@ -602,11 +624,12 @@ function crumbs(parts){
     ? `<button type="button" class="linkbtn" data-go='${esc(JSON.stringify(c.view))}'>${esc(c.label)}</button><span>›</span>`
     : `<b>${esc(c.label)}</b>`).join('');
 }
-function folderCard(icon, title, desc, n, done, go, empty){
+function folderCard(icon, title, desc, n, done, go, empty, unit){
+  unit = unit || 'paper';
   return `<button type="button" class="card folder-card${n?'':' empty-f'}" data-go='${esc(JSON.stringify(go))}'>
     <span class="f-ico">${icon}</span>
     <span class="f-body"><b>${esc(title)}</b><span>${esc(desc)}</span></span>
-    <span class="f-count">${n ? `${n} paper${n>1?'s':''}${done?` · ${done} done`:''}` : esc(empty||'Coming soon')}</span>
+    <span class="f-count">${n ? `${n} ${unit}${n>1?'s':''}${done?` · ${done} done`:''}` : esc(empty||'Coming soon')}</span>
   </button>`;
 }
 /* "Group | Title" in a paper's name puts it in a sub-folder (e.g. "Complex Numbers | Test 2") */
@@ -622,7 +645,9 @@ function renderPapers(){
     const nRes=Object.keys(ATTEMPTS).length;
     grid.innerHTML = FOLDERS.filter(f=>!f.hidden).map(f=>{
       const list=papersIn(f.id);
-      return folderCard(f.icon||'📁', f.title, f.desc||'', list.length, doneCount(list), {level:'folder', cat:f.id});
+      return f.practice
+        ? folderCard(f.icon||'📝', f.title, f.desc||'', list.length, sheetsDone(list), {level:'folder', cat:f.id}, '', 'sheet')
+        : folderCard(f.icon||'📁', f.title, f.desc||'', list.length, doneCount(list), {level:'folder', cat:f.id});
     }).join('') + folderCard('📊','My Results','Your scores, reports and solutions', nRes, 0, {level:'results'}, 'No tests given yet')
       .replace(`${nRes} paper${nRes>1?'s':''}`, `${nRes} test${nRes>1?'s':''} given`);
     return;
@@ -635,7 +660,7 @@ function renderPapers(){
     $('listTitle').textContent=f.title; $('listSub').textContent='Choose a subject.';
     grid.classList.add('folder-grid');
     grid.innerHTML = subs.map(s=>{ const list=papersIn(f.id,s.name);
-      return folderCard(s.icon||'📗', s.name, s.desc||'', list.length, doneCount(list), {level:'folder', cat:f.id, subject:s.name}); }).join('');
+      return folderCard(s.icon||'📗', s.name, s.desc||'', list.length, f.practice?sheetsDone(list):doneCount(list), {level:'folder', cat:f.id, subject:s.name}, '', f.practice?'sheet':''); }).join('');
     return;
   }
   const all=papersIn(f.id, VIEW.subject);
@@ -651,13 +676,20 @@ function renderPapers(){
   if(VIEW.group) list=all.filter(p=>splitName(p.name).g===VIEW.group);
   else {
     const groups=[...new Set(all.map(p=>splitName(p.name).g).filter(Boolean))].sort(natCmp);
-    groupCards=groups.map(g=>{ const gl=all.filter(p=>splitName(p.name).g===g); return folderCard('📂', g, '', gl.length, doneCount(gl), Object.assign({group:g}, base)); }).join('');
+    groupCards=groups.map(g=>{ const gl=all.filter(p=>splitName(p.name).g===g); return f.practice
+      ? folderCard('📂', g, '', gl.length, sheetsDone(gl), Object.assign({group:g}, base), '', 'sheet')
+      : folderCard('📂', g, '', gl.length, doneCount(gl), Object.assign({group:g}, base)); }).join('');
     list=all.filter(p=>!splitName(p.name).g);
   }
+  if(f.practice){
+    const L=VIEW.group?list:all;
+    $('listSub').textContent = all.length ? `${L.length} sheet${L.length>1?'s':''} · tap an option to check it instantly · solutions below every question` : '';
+  } else
   $('listSub').textContent = all.length ? (VIEW.group ? `${list.length} paper${list.length>1?'s':''} · ${doneCount(list)} attempted` : `${all.length} paper${all.length>1?'s':''} · ${doneCount(all)} attempted`) : '';
-  if(!all.length){ grid.innerHTML='<div class="card empty" style="grid-column:1/-1">No papers in this folder yet. New papers will appear here soon.</div>'; return; }
+  if(!all.length){ grid.innerHTML=`<div class="card empty" style="grid-column:1/-1">No ${f.practice?'sheets':'papers'} in this folder yet. New ${f.practice?'sheets':'papers'} will appear here soon.</div>`; return; }
   if(VIEW.group) list=list.slice().sort((a,b)=>natCmp(splitName(a.name).t, splitName(b.name).t));
   grid.classList.toggle('folder-grid', !!groupCards && !list.length);
+  if(f.practice){ grid.innerHTML = groupCards + list.map((p,k)=>sheetCard(p,k)).join(''); return; }
   grid.innerHTML = groupCards + list.map((p,k)=>{
     const a = ATTEMPTS[p.id];
     const foot = a
@@ -700,6 +732,7 @@ function renderResults(){
 }
 document.querySelector('#papers').addEventListener('click', e=>{
   const g=e.target.closest('[data-go]'); if(g){ go(JSON.parse(g.dataset.go)); return; }
+  const sh=e.target.closest('[data-sheet]'); if(sh){ openSheet(sh.dataset.sheet); return; }
   const o=e.target.closest('[data-open]'); if(o) openPaper(o.dataset.open);
   const v=e.target.closest('[data-view]'); if(v) viewResult(v.dataset.view);
   const s=e.target.closest('[data-sol]'); if(s) viewResult(s.dataset.sol, true);
@@ -1189,6 +1222,210 @@ function renderSol(i){
 $('sPrev').addEventListener('click',()=>renderSol(S.solCur-1));
 $('sNext').addEventListener('click',()=>renderSol(S.solCur+1));
 $('backReport').addEventListener('click',()=>show('result'));
+
+/* =====================================================================
+   PRACTICE SHEETS  (folder with practice:true)
+   No timer, no single attempt: every question is checked the moment the
+   student taps an option. Progress is kept on this device per student.
+   ===================================================================== */
+let SH = null;   // {id, p, Q, N, st:[{a,ok}|null], tries:[n]}
+const sheetKey = id => 'stp_sheet_' + ((USER && USER.id) || 'x') + '_' + id;
+function sheetSaved(id){ const s = LS.get(sheetKey(id), null); return (s && Array.isArray(s.st)) ? s : null; }
+const solvedIn = s => s ? s.st.filter(x => x && x.ok).length : 0;
+function sheetsDone(list){ return list.filter(p => { const n = Number(p.questions) || 0; return n && solvedIn(sheetSaved(p.id)) >= n; }).length; }
+function sheetCard(p, k){
+  const n = Number(p.questions) || 0, sv = sheetSaved(p.id), done = solvedIn(sv), began = !!(sv && sv.st.some(Boolean));
+  const pct = n ? Math.round(done / n * 100) : 0;
+  return `<div class="card paper-card sheet-card">
+    <div class="pnum">${/^sheet\b/i.test(splitName(p.name).t) ? esc(splitName(p.name).g || 'Practice Sheet') : 'Sheet ' + (k + 1)}</div>
+    <h3>${esc(splitName(p.name).t)}</h3>
+    <div class="meta">${p.subject ? `<span>${esc(p.subject)}</span>` : ''}<span>${n} Questions</span></div>
+    <div class="sc-prog" title="${done} of ${n} solved"><i style="width:${pct}%"></i></div>
+    <div class="foot"><span class="sc-txt${done && done >= n ? ' all' : ''}">${done >= n && n ? '🏆 All solved' : (done ? `${done}/${n} solved` : (began ? 'In progress' : 'Not started'))}</span>
+      <button class="btn small green" type="button" data-sheet="${esc(p.id)}">${began ? 'Continue →' : 'Open Sheet →'}</button></div></div>`;
+}
+
+async function openSheet(id){
+  busy(true, 'Opening sheet…');
+  try{
+    const paper = await fetchPaper(id);
+    const Qs = paper.questions || [], sv = sheetSaved(id);
+    SH = { id, paper, Q: Qs, N: Qs.length,
+           st: Qs.map((q, i) => (sv && sv.st[i]) || null),
+           tries: Qs.map((q, i) => (sv && sv.tries && sv.tries[i]) || 0) };
+    renderSheet(); busy(false); show('sheet');
+    document.documentElement.style.setProperty('--shTop', document.querySelector('#sheet .topbar').offsetHeight + 'px');
+  }catch(e){ if(e.auth) return authFail(e); busy(false); toast('Could not open the sheet. Please check your internet and try again.'); }
+}
+function saveSheet(){ LS.set(sheetKey(SH.id), { st: SH.st, tries: SH.tries }); }
+const shAnsText = q => q.bonus ? 'Bonus' : (q.type === 'mcq' ? '(' + LET[Number(q.ans)] + ')' : String(q.ans));
+
+function renderSheet(){
+  const ps = SH.paper.settings || {}, pl = PAPERS.find(x => x.id === SH.id) || {};
+  const nm = splitName(ps.paperName || pl.name || 'Practice Sheet');
+  const topics = ps.topic || nm.g || [...new Set(SH.Q.map(q => q.topic).filter(Boolean))].join(' · ');
+  const nM = SH.Q.filter(q => q.type === 'mcq').length, nN = SH.N - nM;
+  $('sheetHead').innerHTML = `
+    <span class="paper-tag">PRACTICE SHEET${ps.exam ? ' · ' + esc(String(ps.exam).toUpperCase()) : ''}</span>
+    <h1>${esc(nm.t)}</h1>
+    ${topics ? `<div class="sh-topic"><span>Topic</span><b>${esc(topics)}</b></div>` : ''}
+    <div class="meta">${ps.subject ? `<span>${esc(ps.subject)}</span>` : ''}<span>${SH.N} Questions</span>${nM && nN ? `<span>${nM} MCQ</span><span>${nN} Numerical</span>` : ''}</div>
+    <p class="sh-how">Tap an option to check it — <b class="g">green</b> means correct, <b class="r">red</b> means try again. Open <b>View Solution</b> under any question.</p>`;
+  $('sheetBody').innerHTML = SH.Q.map((q, i) => {
+    const body = q.type === 'mcq'
+      ? '<div class="opts">' + (q.opts || []).map((o, k) => `<button type="button" class="opt" data-k="${k}"><span class="ol">${LET[k]}</span><span class="ot">${o}</span></button>`).join('') + '</div>'
+      : `<div class="sq-num"><input class="sq-in" type="text" inputmode="decimal" autocomplete="off" maxlength="14" placeholder="Type your answer" aria-label="Answer for question ${i + 1}">
+           <button type="button" class="btn sq-check">Check</button></div>`;
+    return `<article class="card sq" id="sq${i}" data-i="${i}">
+      <div class="sq-head"><span class="sq-no">Q${i + 1}</span><span class="pill">${q.type === 'mcq' ? 'Single Correct' : 'Numerical Value'}</span><span class="sq-badge"></span></div>
+      <div class="q-text">${q.q}</div>
+      ${body}
+      <div class="sq-fb" aria-live="polite"></div>
+      <div class="sq-actions">
+        <button type="button" class="btn light small sq-retry" hidden>↻ Try Again</button>
+        <button type="button" class="btn light small sq-reset" hidden>↺ Reset</button>
+        <span class="grow"></span>
+        <button type="button" class="btn ghost small sq-solbtn" aria-expanded="false">📘 View Solution</button>
+      </div>
+      <div class="sq-sol"><div class="sq-sol-in"><div class="sq-sol-box">
+        <h4>Solution</h4>
+        <div class="st">${q.sol || '<i>Solution not provided.</i>'}</div>
+        <p class="sq-ansline">Answer: <b>${esc(shAnsText(q))}</b></p>
+      </div></div></div>
+    </article>`;
+  }).join('');
+  $('shChips').innerHTML = SH.Q.map((q, i) => `<button type="button" class="chip small" data-jump="${i}" aria-label="Go to question ${i + 1}">${i + 1}</button>`).join('');
+  $('shTotal').textContent = SH.N;
+  SH.Q.forEach((q, i) => paintSq(i));
+  paintProgress();
+  typeset($('sheetBody')); typeset($('sheetHead'));
+}
+
+function paintSq(i){
+  const q = SH.Q[i], st = SH.st[i], el = $('sq' + i); if(!el) return;
+  const ok = !!(st && st.ok), bad = !!(st && !st.ok);
+  el.classList.toggle('is-ok', ok); el.classList.toggle('is-bad', bad);
+  if(q.type === 'mcq'){
+    el.querySelectorAll('.opt').forEach(b => {
+      const k = +b.dataset.k, mine = !!st && Number(st.a) === k;
+      b.classList.toggle('correct', ok && mine);
+      b.classList.toggle('wrong', bad && mine);
+      b.classList.toggle('dim', !!st && !mine);
+      b.disabled = !!st;
+    });
+  } else {
+    const inp = el.querySelector('.sq-in');
+    if(st) inp.value = st.a;
+    inp.disabled = !!st; el.querySelector('.sq-check').disabled = !!st;
+    inp.classList.toggle('ok', ok); inp.classList.toggle('bad', bad);
+  }
+  const t = SH.tries[i] || 0;
+  el.querySelector('.sq-fb').innerHTML = ok
+    ? `<span class="fb-ok">🎉 Correct! ${t > 1 ? 'You got it on try ' + t + '.' : 'Well done.'}</span>`
+    : bad ? '<span class="fb-bad">✘ Not correct. Tap <b>Try Again</b>, or open the solution.</span>' : '';
+  el.querySelector('.sq-badge').innerHTML = ok ? '<span class="sb-ok">✓ Solved</span>' : bad ? '<span class="sb-bad">✗ Try again</span>' : '';
+  el.querySelector('.sq-retry').hidden = !bad;
+  el.querySelector('.sq-reset').hidden = !ok;
+  const chip = $('shChips').querySelector(`[data-jump="${i}"]`);
+  if(chip){ chip.classList.toggle('rc', ok); chip.classList.toggle('rw', bad); }
+}
+function paintProgress(){
+  const done = SH.st.filter(x => x && x.ok).length, wrong = SH.st.filter(x => x && !x.ok).length;
+  $('shSolved').textContent = done;
+  $('shFill').style.width = (SH.N ? done / SH.N * 100 : 0) + '%';
+  $('sheetEnd').innerHTML = `<div class="card sheet-sum${done === SH.N && SH.N ? ' all' : ''}">
+      ${done === SH.N && SH.N ? `<div class="ss-big">🏆 Sheet complete!</div><p>All ${SH.N} questions solved correctly.</p>`
+        : `<div class="ss-big">${done} / ${SH.N} solved</div><p>${wrong ? `${wrong} question${wrong > 1 ? 's' : ''} still need${wrong > 1 ? '' : 's'} another try. ` : ''}${SH.N - done - wrong ? `${SH.N - done - wrong} not tried yet.` : ''}</p>`}
+      <div class="ss-btns"><button type="button" class="btn light" id="shResetAll">↺ Reset Whole Sheet</button>
+        <button type="button" class="btn" id="shBack2">← Back to Sheets</button></div></div>`;
+}
+
+function answerSq(i, a, x, y){
+  const q = SH.Q[i]; if(SH.st[i]) return;
+  let ok;
+  if(q.bonus) ok = true;
+  else if(q.type === 'mcq') ok = Number(a) === Number(q.ans);
+  else ok = Math.abs(parseFloat(a) - Number(q.ans)) <= (q.tol != null ? Number(q.tol) : 0.001) + 1e-9;
+  SH.tries[i] = (SH.tries[i] || 0) + 1;
+  SH.st[i] = { a, ok };
+  saveSheet(); paintSq(i); paintProgress();
+  const el = $('sq' + i);
+  if(ok){
+    burst(x, y, false);
+    if(SH.st.every(s => s && s.ok)) setTimeout(() => { burst(innerWidth / 2, innerHeight * 0.45, true); toast('🏆 Fantastic! You solved the whole sheet.', 5000); }, 450);
+  } else {
+    el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake');
+  }
+}
+function clearSq(i){ SH.st[i] = null; saveSheet(); const el = $('sq' + i); if(SH.Q[i].type !== 'mcq'){ const inp = el.querySelector('.sq-in'); inp.value = ''; } paintSq(i); paintProgress(); }
+
+$('sheet').addEventListener('click', e => {
+  const jump = e.target.closest('[data-jump]');
+  if(jump){ const el = $('sq' + jump.dataset.jump); if(el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+  if(e.target.closest('#sheetBack') || e.target.closest('#shBack2')){ renderPapers(); show('papers'); return; }
+  if(e.target.closest('#shResetAll')){
+    if(!confirm('Reset the whole sheet? All your answers on this sheet will be cleared.')) return;
+    SH.st = SH.st.map(() => null); SH.tries = SH.tries.map(() => 0); saveSheet();
+    SH.Q.forEach((q, i) => { if(q.type !== 'mcq') $('sq' + i).querySelector('.sq-in').value = ''; paintSq(i); });
+    paintProgress(); window.scrollTo({ top: 0, behavior: 'smooth' }); return;
+  }
+  const card = e.target.closest('.sq'); if(!card) return;
+  const i = +card.dataset.i;
+  const opt = e.target.closest('.opt');
+  if(opt && !opt.disabled){ const r = opt.getBoundingClientRect(); answerSq(i, +opt.dataset.k, e.clientX || r.left + 24, e.clientY || r.top + r.height / 2); return; }
+  if(e.target.closest('.sq-check')) return checkNum(i);
+  if(e.target.closest('.sq-retry') || e.target.closest('.sq-reset')) return clearSq(i);
+  const sb = e.target.closest('.sq-solbtn');
+  if(sb){
+    const open = !card.classList.contains('sol-open');
+    card.classList.toggle('sol-open', open);
+    sb.setAttribute('aria-expanded', open);
+    sb.innerHTML = open ? '📕 Hide Solution' : '📘 View Solution';
+  }
+});
+$('sheet').addEventListener('keydown', e => {
+  if(e.key === 'Enter' && e.target.classList.contains('sq-in')){ e.preventDefault(); checkNum(+e.target.closest('.sq').dataset.i); }
+});
+function checkNum(i){
+  const el = $('sq' + i), inp = el.querySelector('.sq-in'), v = inp.value.trim();
+  if(!/^-?\d+(\.\d+)?$/.test(v) && !/^-?\.\d+$/.test(v)){
+    el.querySelector('.sq-fb').innerHTML = '<span class="fb-bad">Please type a number (e.g. 12, -3 or 2.5).</span>'; inp.focus(); return;
+  }
+  const r = el.querySelector('.sq-check').getBoundingClientRect();
+  answerSq(i, v, r.left + r.width / 2, r.top + r.height / 2);
+}
+
+/* small "cracker" burst at the tapped option; a big one when the sheet is complete */
+function burst(x, y, big){
+  if(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const ring = document.createElement('div'); ring.className = 'fx-ring' + (big ? ' big' : '');
+  ring.style.left = x + 'px'; ring.style.top = y + 'px'; document.body.appendChild(ring);
+  setTimeout(() => ring.remove(), 700);
+  const c = document.createElement('canvas'), d = Math.min(2, window.devicePixelRatio || 1);
+  c.className = 'fx-canvas'; c.width = innerWidth * d; c.height = innerHeight * d; document.body.appendChild(c);
+  const g = c.getContext('2d'); g.scale(d, d);
+  const cols = ['#ffcf33', '#ff7a2f', '#f72585', '#3fc1f0', '#2b9a59', '#8a5cf6', '#ff3d6e'];
+  const n = big ? 170 : 46, P = [];
+  for(let k = 0; k < n; k++){
+    const a = Math.random() * Math.PI * 2, v = (big ? 4 : 2.4) + Math.random() * (big ? 9 : 4.6);
+    P.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - (big ? 3 : 1.6), r: 2 + Math.random() * (big ? 3.5 : 2.6),
+             c: cols[k % cols.length], life: 1, rot: Math.random() * 6, vr: (Math.random() - .5) * .45, sq: Math.random() < .55 });
+  }
+  let last = performance.now();
+  (function frame(t){
+    const dt = Math.min(40, t - last) / 16.7; last = t;
+    g.clearRect(0, 0, innerWidth, innerHeight); let alive = 0;
+    for(const p of P){
+      if(p.life <= 0) continue; alive++;
+      p.vy += .16 * dt; p.vx *= Math.pow(.985, dt); p.vy *= Math.pow(.985, dt);
+      p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.vr * dt; p.life -= (big ? .0085 : .019) * dt;
+      g.globalAlpha = Math.max(0, Math.min(1, p.life * 1.4)); g.fillStyle = p.c;
+      if(p.sq){ g.save(); g.translate(p.x, p.y); g.rotate(p.rot); g.fillRect(-p.r, -p.r / 2, p.r * 2, p.r); g.restore(); }
+      else { g.beginPath(); g.arc(p.x, p.y, p.r * .75, 0, 6.3); g.fill(); }
+    }
+    if(alive) requestAnimationFrame(frame); else c.remove();
+  })(last);
+}
 
 /* =====================================================================
    START-UP: remember the logged-in student on this device

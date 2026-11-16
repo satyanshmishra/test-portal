@@ -1,5 +1,5 @@
 /**
- * Satyansh's Test Papers — backend (Google Apps Script)   v2 (accounts + folders)
+ * Satyansh's Test Papers — backend (Google Apps Script)   v2.1 (accounts + folders + practice sheets)
  * ==============================================================================
  * Paste this whole file into: Google Sheet → Extensions → Apps Script → Code.gs
  * (replace everything that is there now).
@@ -30,7 +30,7 @@ var SUPABASE_URL = 'https://axznixboebvixkigojvj.supabase.co';
 var SUPABASE_KEY = 'sb_publishable_g3vreHGOHm7lu4b91Qtahw_4uH-loXh';
 
 /* Folder ids used in the Papers sheet "Category" column */
-var CATEGORIES = ['topic', 'full', 'main3h'];
+var CATEGORIES = ['topic', 'full', 'main3h', 'sheet'];   // 'sheet' = Practice Sheets folder
 
 var PAPER_COLS = ['Paper ID', 'Paper Name', 'Exam', 'Subject', 'Duration (min)', 'Questions',
                   'Max Marks', 'Active', 'Order', 'Created', 'Updated', 'File ID', 'Category'];

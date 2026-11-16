@@ -1,0 +1,7 @@
+{"settings":{"paperName":"Complex Numbers | Sheet 1","exam":"JEE Main","subject":"Mathematics","durationMin":60,"category":"sheet"},
+"sections":[{"id":"A","title":"Section A","type":"mcq","correct":4,"wrong":-1},{"id":"B","title":"Section B","type":"num","correct":4,"wrong":0}],
+"questions":[
+{"section":"A","type":"mcq","topic":"Modulus","q":"If \\(z = 3 + 4i\\), then \\(|z|\\) equals","opts":["\\(3\\)","\\(4\\)","\\(5\\)","\\(7\\)"],"ans":2,"sol":"\\(|z|=\\sqrt{3^2+4^2}=\\sqrt{25}=5\\)."},
+{"section":"A","type":"mcq","topic":"Powers of i","q":"The value of \\(i^{2026}\\) is","opts":["\\(1\\)","\\(-1\\)","\\(i\\)","\\(-i\\)"],"ans":1,"sol":"\\(2026 = 4\\cdot 506 + 2\\), so \\(i^{2026}=i^2=-1\\)."},
+{"section":"B","type":"num","topic":"Argument","q":"If \\(\\arg z = \\dfrac{\\pi}{k}\\) for \\(z = 1+i\\), find \\(k\\).","ans":4,"sol":"\\(\\arg(1+i)=\\pi/4\\), so \\(k=4\\)."}
+]}

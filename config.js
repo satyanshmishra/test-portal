@@ -10,11 +10,13 @@ window.APP_CONFIG = {
   SUPABASE_URL: "https://axznixboebvixkigojvj.supabase.co",
   SUPABASE_KEY: "sb_publishable_g3vreHGOHm7lu4b91Qtahw_4uH-loXh",
 
-  /* Folders students see after login. "id" must match the paper's category. */
+  /* Folders students see after login. "id" must match the paper's category.
+     practice: true = sheet folder: no timer, no single attempt, every question checked instantly. */
   FOLDERS: [
     { id: "topic",  title: "Topic-wise Papers",      desc: "Chapter and topic tests",                    icon: "📘", bySubject: true },
     { id: "full",   title: "Full Syllabus Papers",   desc: "Tests on the complete syllabus",             icon: "📚" },
-    { id: "main3h", title: "JEE Main 3-Hour Papers", desc: "Full-length papers in the JEE Main pattern", icon: "⏱️", allSubjects: true }
+    { id: "main3h", title: "JEE Main 3-Hour Papers", desc: "Full-length papers in the JEE Main pattern", icon: "⏱️", allSubjects: true },
+    { id: "sheet",  title: "Practice Sheets",        desc: "Tap an option, check instantly, see solutions", icon: "📝", practice: true }
   ],
 
   /* Subjects. Set show: true to switch Physics / Chemistry on later.

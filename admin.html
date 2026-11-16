@@ -157,7 +157,7 @@ document.querySelectorAll('.js-brand').forEach(e=>e.textContent=BRAND);
 if(!API) $('aCfg').style.display='block';
 
 let PASS='', PAPERS=[], RESULTS=[], RLIST=[], DRAFT=null, EDIT_ID=null;
-const FOLDERS=(CFG.FOLDERS&&CFG.FOLDERS.length)?CFG.FOLDERS:[{id:'topic',title:'Topic-wise Papers'},{id:'full',title:'Full Syllabus Papers'},{id:'main3h',title:'JEE Main 3-Hour Papers',allSubjects:true}];
+const FOLDERS=(CFG.FOLDERS&&CFG.FOLDERS.length)?CFG.FOLDERS:[{id:'topic',title:'Topic-wise Papers'},{id:'full',title:'Full Syllabus Papers'},{id:'main3h',title:'JEE Main 3-Hour Papers',allSubjects:true},{id:'sheet',title:'Practice Sheets',practice:true}];
 const catOpts=sel=>FOLDERS.map(f=>`<option value="${esc(f.id)}"${f.id===sel?' selected':''}>${esc(f.title)}</option>`).join('');
 const OFF_SUBJ=((CFG.SUBJECTS)||[]).filter(s=>!s.show).map(s=>s.name);
 const subjOff=p=>((FOLDERS.find(f=>f.id===(p.category||'topic'))||{}).allSubjects ? undefined : OFF_SUBJ.find(n=>String(p.subject||'').toLowerCase().includes(n.toLowerCase())));
@@ -297,7 +297,8 @@ function preview(i){
   $('pvBox').innerHTML=h; typeset($('pvBox'));
 }
 $('saveBtn').addEventListener('click',async()=>{
-  const name=$('fName').value.trim(), dur=parseInt($('fDur').value,10);
+  const name=$('fName').value.trim(); let dur=parseInt($('fDur').value,10);
+  if(!(dur>0) && (FOLDERS.find(f=>f.id===$('fCat').value)||{}).practice) dur=60;   // sheets have no timer
   if(!name){ toast('Please enter the paper name.'); $('fName').focus(); return; }
   if(!(dur>0)){ toast('Please enter the duration in minutes.'); $('fDur').focus(); return; }
   DRAFT.settings={paperName:name, exam:$('fExam').value.trim(), subject:$('fSubject').value.trim(), durationMin:dur, category:$('fCat').value};

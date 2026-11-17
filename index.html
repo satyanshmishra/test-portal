@@ -285,6 +285,17 @@ window.MathJax = {
     <div id="sheetBody"></div>
     <div class="sheet-end" id="sheetEnd"></div>
   </div>
+  <aside class="sh-stat" id="shStat" aria-label="Sheet status">
+    <div class="ss-top"><b>⏱ Status</b><button type="button" class="ss-ic" id="ssMin" title="Minimise" aria-label="Minimise status">–</button></div>
+    <div class="ss-body">
+      <div class="ss-clock"><small id="ssClkLbl">Timer off</small><span id="ssClk">—</span></div>
+      <div class="ss-now" id="ssNow"></div>
+      <div class="ss-grid"><div><b id="ssAns">0</b><span>Answered</span></div><div><b id="ssOk" class="g">0</b><span>Correct</span></div><div><b id="ssBad" class="r">0</b><span>Wrong</span></div></div>
+      <div class="ss-mode" id="ssMode"></div>
+      <div class="ss-btns"><button type="button" class="btn small green" id="ssRun">▶ Start</button><button type="button" class="btn small light" id="ssReveal">🔓 Show answers</button></div>
+    </div>
+    <button type="button" class="ss-pill" id="ssPill" title="Show status"></button>
+  </aside>
 </section>
 
 <!-- ================= SUMMARY MODAL ================= -->
@@ -1277,13 +1288,17 @@ $('backReport').addEventListener('click',()=>show('result'));
 
 /* =====================================================================
    PRACTICE SHEETS  (folder with practice:true)
-   No timer, no single attempt: every question is checked the moment the
-   student taps an option. Progress is kept on this device per student.
+   No single-attempt rule. The student chooses on the sheet page:
+     • when answers are shown: immediately, after every 5/10/15… questions, or at the end
+     • a timer: off, stopwatch (records the time on every question) or a time limit per question
+   A status panel on the right (minimisable) shows the clock, the current question and counts.
+   Progress, settings and times are kept on this device per student.
    ===================================================================== */
-let SH = null;   // {id, p, Q, N, st:[{a,ok}|null], tries:[n]}
+let SH = null;
 const sheetKey = id => 'stp_sheet_' + ((USER && USER.id) || 'x') + '_' + id;
 function sheetSaved(id){ const s = LS.get(sheetKey(id), null); return (s && Array.isArray(s.st)) ? s : null; }
-const solvedIn = s => s ? s.st.filter(x => x && x.ok).length : 0;
+const isRv = x => !!x && x.rv !== false;                 // answer is shown (old saves had no rv = shown)
+const solvedIn = s => s ? s.st.filter(x => isRv(x) && x.ok).length : 0;
 function sheetsDone(list){ return list.filter(p => { const n = Number(p.questions) || 0; return n && solvedIn(sheetSaved(p.id)) >= n; }).length; }
 function sheetCard(p, k){
   const n = Number(p.questions) || 0, sv = sheetSaved(p.id), done = solvedIn(sv), began = !!(sv && sv.st.some(Boolean));
@@ -1297,20 +1312,77 @@ function sheetCard(p, k){
       <button class="btn small green" type="button" data-sheet="${esc(p.id)}">${began ? 'Continue →' : 'Open Sheet →'}</button></div></div>`;
 }
 
+const SH_DEF = { reveal: 0, timer: 'off', per: 120 };     // reveal: 0 = immediately, 5/10/15… = after every N, 'end'
+const PER_OPTS = [30, 45, 60, 90, 120, 150, 180, 240, 300];
+const perTxt = s => s < 60 ? s + ' sec' : (s % 60 ? (s / 60).toFixed(1).replace('.0', '') : s / 60) + ' min';
+
 async function openSheet(id){
   busy(true, 'Opening sheet…');
   try{
     const paper = await fetchPaper(id);
-    const Qs = paper.questions || [], sv = sheetSaved(id);
-    SH = { id, paper, Q: Qs, N: Qs.length,
-           st: Qs.map((q, i) => (sv && sv.st[i]) || null),
-           tries: Qs.map((q, i) => (sv && sv.tries && sv.tries[i]) || 0) };
+    const Qs = paper.questions || [], sv = sheetSaved(id) || {};
+    const cfg = Object.assign({}, SH_DEF, LS.get('stp_sheet_cfg', {}), sv.cfg || {});
+    SH = { id, paper, Q: Qs, N: Qs.length, cfg,
+           st: Qs.map((q, i) => (sv.st && sv.st[i]) || null),
+           tries: Qs.map((q, i) => (sv.tries && sv.tries[i]) || 0),
+           t: Qs.map((q, i) => (sv.t && sv.t[i]) || 0),
+           rb: Array.isArray(sv.rb) ? sv.rb : [],
+           total: Number(sv.total) || 0, started: !!sv.started, run: false, lastT: 0, lastSave: 0, cur: -1,
+           timeUp: !!sv.timeUp };
     renderSheet(); busy(false); show('sheet');
     document.documentElement.style.setProperty('--shTop', document.querySelector('#sheet .topbar').offsetHeight + 'px');
+    const minPref = LS.get('stp_sheet_min', null);
+    $('shStat').classList.toggle('min', minPref === null ? innerWidth < 1200 : !!minPref);
+    paintStatus();
   }catch(e){ if(e.auth) return authFail(e); busy(false); toast('Could not open the sheet. Please check your internet and try again.'); }
 }
-function saveSheet(){ LS.set(sheetKey(SH.id), { st: SH.st, tries: SH.tries }); }
+function saveSheet(){
+  SH.lastSave = performance.now();
+  LS.set(sheetKey(SH.id), { st: SH.st, tries: SH.tries, cfg: SH.cfg, t: SH.t, rb: SH.rb, total: SH.total, started: SH.started, timeUp: SH.timeUp });
+}
 const shAnsText = q => q.bonus ? 'Bonus' : (q.type === 'mcq' ? '(' + LET[Number(q.ans)] + ')' : String(q.ans));
+
+/* ---------- answer-reveal blocks ---------- */
+const blkSize = () => SH.cfg.reveal === 'end' ? SH.N : (Number(SH.cfg.reveal) || 0);
+const blkOf = i => Math.floor(i / blkSize());
+const blkRange = b => { const R = blkSize(); return [b * R, Math.min(SH.N, b * R + R) - 1]; };
+const nBlocks = () => blkSize() ? Math.ceil(SH.N / blkSize()) : 0;
+const liveCheck = i => !blkSize() || !!SH.rb[blkOf(i)];   // is this question checked the moment it is answered?
+const timerOn = () => SH.cfg.timer !== 'off';
+const limitMs = () => SH.N * SH.cfg.per * 1000;
+
+function cfgHTML(){
+  const c = SH.cfg, steps = [];
+  for(let k = 5; k < SH.N; k += 5) steps.push(k);
+  return `<div class="sh-cfg">
+    <div class="cfg-h">⚙️ Practice settings <span>— choose how you want to solve this sheet</span></div>
+    <div class="cfg-grid">
+      <label class="cfg-f"><span>Show answers</span>
+        <select id="cfgReveal">
+          <option value="0"${!c.reveal ? ' selected' : ''}>Immediately after each question</option>
+          ${steps.map(k => `<option value="${k}"${String(c.reveal) === String(k) ? ' selected' : ''}>After every ${k} questions</option>`).join('')}
+          <option value="end"${c.reveal === 'end' ? ' selected' : ''}>At the end (all together)</option>
+        </select></label>
+      <label class="cfg-f"><span>Timer</span>
+        <select id="cfgTimer">
+          <option value="off"${c.timer === 'off' ? ' selected' : ''}>No timer</option>
+          <option value="watch"${c.timer === 'watch' ? ' selected' : ''}>Stopwatch — record my time</option>
+          <option value="target"${c.timer === 'target' ? ' selected' : ''}>Time limit per question</option>
+        </select></label>
+      <label class="cfg-f" id="cfgPerF"${c.timer === 'target' ? '' : ' hidden'}><span>Time per question</span>
+        <select id="cfgPer">${PER_OPTS.map(s => `<option value="${s}"${Number(c.per) === s ? ' selected' : ''}>${perTxt(s)}</option>`).join('')}</select></label>
+    </div>
+    <div class="cfg-foot" id="cfgFoot"></div>
+  </div>`;
+}
+function paintCfgFoot(){
+  const el = $('cfgFoot'); if(!el) return;
+  if(!timerOn()){ el.innerHTML = ''; return; }
+  const lim = SH.cfg.timer === 'target' ? ` · total time ${fmt(limitMs())} for ${SH.N} questions` : '';
+  el.innerHTML = SH.started
+    ? `<span class="cfg-note">⏱ Timer ${SH.run ? 'running' : 'paused'}${lim}</span><button type="button" class="btn small ${SH.run ? 'light' : 'green'}" data-run="1">${SH.run ? '❚❚ Pause' : '▶ Resume'}</button>`
+    : `<span class="cfg-note">Press Start when you are ready${lim}.</span><button type="button" class="btn small green" data-run="1">▶ Start Timer</button>`;
+}
 
 function renderSheet(){
   const ps = SH.paper.settings || {}, pl = PAPERS.find(x => x.id === SH.id) || {};
@@ -1322,14 +1394,16 @@ function renderSheet(){
     <h1>${esc(nm.t)}</h1>
     ${topics ? `<div class="sh-topic"><span>Topic</span><b>${esc(topics)}</b></div>` : ''}
     <div class="meta">${ps.subject ? `<span>${esc(ps.subject)}</span>` : ''}<span>${SH.N} Questions</span>${nM && nN ? `<span>${nM} MCQ</span><span>${nN} Numerical</span>` : ''}</div>
-    <p class="sh-how">Tap an option to check it — <b class="g">green</b> means correct, <b class="r">red</b> means try again. Open <b>View Solution</b> under any question.</p>`;
-  $('sheetBody').innerHTML = SH.Q.map((q, i) => {
+    ${cfgHTML()}
+    <p class="sh-how" id="shHow"></p>`;
+  let html = '';
+  SH.Q.forEach((q, i) => {
     const body = q.type === 'mcq'
       ? '<div class="opts">' + (q.opts || []).map((o, k) => `<button type="button" class="opt" data-k="${k}"><span class="ol">${LET[k]}</span><span class="ot">${o}</span></button>`).join('') + '</div>'
       : `<div class="sq-num"><input class="sq-in" type="text" inputmode="decimal" autocomplete="off" maxlength="14" placeholder="Type your answer" aria-label="Answer for question ${i + 1}">
            <button type="button" class="btn sq-check">Check</button></div>`;
-    return `<article class="card sq" id="sq${i}" data-i="${i}">
-      <div class="sq-head"><span class="sq-no">Q${i + 1}</span><span class="pill">${q.type === 'mcq' ? 'Single Correct' : 'Numerical Value'}</span><span class="sq-badge"></span></div>
+    html += `<article class="card sq" id="sq${i}" data-i="${i}">
+      <div class="sq-head"><span class="sq-no">Q${i + 1}</span><span class="pill">${q.type === 'mcq' ? 'Single Correct' : 'Numerical Value'}</span><span class="sq-time" hidden></span><span class="sq-badge"></span></div>
       <div class="q-text">${q.q}</div>
       ${body}
       <div class="sq-fb" aria-live="polite"></div>
@@ -1345,81 +1419,291 @@ function renderSheet(){
         <p class="sq-ansline">Answer: <b>${esc(shAnsText(q))}</b></p>
       </div></div></div>
     </article>`;
-  }).join('');
+    if(blkSize() && i === blkRange(blkOf(i))[1]) html += `<div class="blk" id="blk${blkOf(i)}" data-b="${blkOf(i)}"></div>`;
+  });
+  $('sheetBody').innerHTML = html;
   $('shChips').innerHTML = SH.Q.map((q, i) => `<button type="button" class="chip small" data-jump="${i}" aria-label="Go to question ${i + 1}">${i + 1}</button>`).join('');
   $('shTotal').textContent = SH.N;
+  paintHow(); paintCfgFoot();
   SH.Q.forEach((q, i) => paintSq(i));
+  for(let b = 0; b < nBlocks(); b++) paintBlock(b);
   paintProgress();
   typeset($('sheetBody')); typeset($('sheetHead'));
+}
+function paintHow(){
+  const R = blkSize();
+  $('shHow').innerHTML = !R
+    ? 'Tap an option to check it — <b class="g">green</b> means correct, <b class="r">red</b> means try again. Open <b>View Solution</b> under any question.'
+    : (SH.cfg.reveal === 'end'
+      ? 'Answer the questions — you can change an answer until the answers are shown. All answers (with solutions) are shown at the end, or when you tap <b>Show answers</b>.'
+      : `Answer the questions — you can change an answer until it is shown. Answers and solutions are shown after every <b>${R}</b> questions, or when you tap <b>Show answers</b>.`);
 }
 
 function paintSq(i){
   const q = SH.Q[i], st = SH.st[i], el = $('sq' + i); if(!el) return;
-  const ok = !!(st && st.ok), bad = !!(st && !st.ok);
-  el.classList.toggle('is-ok', ok); el.classList.toggle('is-bad', bad);
+  const rv = isRv(st), hid = !!st && !rv, ok = rv && st.ok, bad = rv && !st.ok, live = liveCheck(i);
+  el.classList.toggle('is-ok', ok); el.classList.toggle('is-bad', bad); el.classList.toggle('is-sv', hid);
   if(q.type === 'mcq'){
     el.querySelectorAll('.opt').forEach(b => {
       const k = +b.dataset.k, mine = !!st && Number(st.a) === k;
+      b.classList.toggle('sel', hid && mine);
       b.classList.toggle('correct', ok && mine);
       b.classList.toggle('wrong', bad && mine);
-      b.classList.toggle('dim', !!st && !mine);
-      b.disabled = !!st;
+      b.classList.toggle('dim', rv && !mine);
+      b.disabled = rv;
     });
   } else {
-    const inp = el.querySelector('.sq-in');
+    const inp = el.querySelector('.sq-in'), cb = el.querySelector('.sq-check');
     if(st) inp.value = st.a;
-    inp.disabled = !!st; el.querySelector('.sq-check').disabled = !!st;
-    inp.classList.toggle('ok', ok); inp.classList.toggle('bad', bad);
+    inp.disabled = rv; cb.disabled = rv; cb.textContent = live ? 'Check' : 'Save';
+    inp.classList.toggle('ok', ok); inp.classList.toggle('bad', bad); inp.classList.toggle('sv', hid);
   }
   const t = SH.tries[i] || 0;
+  let wait = '';
+  if(hid){ const [s, e] = blkRange(blkOf(i)); wait = SH.cfg.reveal === 'end' ? 'at the end' : `after you answer Q${s + 1}–Q${e + 1}`; }
   el.querySelector('.sq-fb').innerHTML = ok
     ? `<span class="fb-ok">🎉 Correct! ${t > 1 ? 'You got it on try ' + t + '.' : 'Well done.'}</span>`
-    : bad ? '<span class="fb-bad">✘ Not correct. Tap <b>Try Again</b>, or open the solution.</span>' : '';
-  el.querySelector('.sq-badge').innerHTML = ok ? '<span class="sb-ok">✓ Solved</span>' : bad ? '<span class="sb-bad">✗ Try again</span>' : '';
+    : bad ? '<span class="fb-bad">✘ Not correct. Tap <b>Try Again</b>, or open the solution.</span>'
+    : hid ? `<span class="fb-sv">✓ Answer saved — you will see if it is right ${wait}.</span>` : '';
+  el.querySelector('.sq-badge').innerHTML = ok ? '<span class="sb-ok">✓ Solved</span>' : bad ? '<span class="sb-bad">✗ Try again</span>' : hid ? '<span class="sb-sv">● Answered</span>' : '';
   el.querySelector('.sq-retry').hidden = !bad;
   el.querySelector('.sq-reset').hidden = !ok;
+  const sb = el.querySelector('.sq-solbtn');
+  sb.hidden = !live;                                           // no peeking before the answers are shown
+  if(!live && el.classList.contains('sol-open')){ el.classList.remove('sol-open'); sb.innerHTML = '📘 View Solution'; }
+  paintQTime(i);
   const chip = $('shChips').querySelector(`[data-jump="${i}"]`);
-  if(chip){ chip.classList.toggle('rc', ok); chip.classList.toggle('rw', bad); }
+  if(chip){ chip.classList.toggle('rc', ok); chip.classList.toggle('rw', bad); chip.classList.toggle('sv', hid); }
 }
-function paintProgress(){
-  const done = SH.st.filter(x => x && x.ok).length, wrong = SH.st.filter(x => x && !x.ok).length;
-  $('shSolved').textContent = done;
-  $('shFill').style.width = (SH.N ? done / SH.N * 100 : 0) + '%';
-  $('sheetEnd').innerHTML = `<div class="card sheet-sum${done === SH.N && SH.N ? ' all' : ''}">
-      ${done === SH.N && SH.N ? `<div class="ss-big">🏆 Sheet complete!</div><p>All ${SH.N} questions solved correctly.</p>`
-        : `<div class="ss-big">${done} / ${SH.N} solved</div><p>${wrong ? `${wrong} question${wrong > 1 ? 's' : ''} still need${wrong > 1 ? '' : 's'} another try. ` : ''}${SH.N - done - wrong ? `${SH.N - done - wrong} not tried yet.` : ''}</p>`}
-      <div class="ss-btns"><button type="button" class="btn light" id="shResetAll">↺ Reset Whole Sheet</button>
-        <button type="button" class="btn" id="shBack2">← Back to Sheets</button></div></div>`;
+function paintQTime(i){
+  const el = $('sq' + i); if(!el) return;
+  const tm = el.querySelector('.sq-time'), ms = SH.t[i] || 0;
+  if(!timerOn() || (!ms && SH.cur !== i)){ tm.hidden = true; return; }
+  tm.hidden = false;
+  const over = SH.cfg.timer === 'target' && ms > SH.cfg.per * 1000;
+  const running = SH.run && SH.cur === i && !SH.st[i];
+  tm.className = 'sq-time' + (over ? ' over' : '') + (running ? ' live' : '');
+  tm.textContent = '⏱ ' + fmt(ms) + (SH.cfg.timer === 'target' ? ' / ' + fmt(SH.cfg.per * 1000) : '');
+}
+function paintBlock(b){
+  const el = $('blk' + b); if(!el) return;
+  const [s, e] = blkRange(b), n = e - s + 1;
+  let ans = 0, ok = 0;
+  for(let i = s; i <= e; i++){ if(SH.st[i]) ans++; if(isRv(SH.st[i]) && SH.st[i].ok) ok++; }
+  const lbl = SH.cfg.reveal === 'end' ? 'all questions' : `Q${s + 1}–Q${e + 1}`;
+  el.className = 'blk' + (SH.rb[b] ? ' done' : '');
+  el.innerHTML = SH.rb[b]
+    ? `<span>✓ Answers shown for ${lbl} · <b>${ok}/${n} correct</b>${n - ans ? ` · ${n - ans} not answered yet` : ''}</span>`
+    : `<span>🔒 Answers for ${lbl} are hidden · <b>${ans}/${n} answered</b></span><button type="button" class="btn small" data-reveal="${b}">🔓 Show answers now</button>`;
 }
 
+function paintProgress(){
+  const done = SH.st.filter(x => isRv(x) && x.ok).length, wrong = SH.st.filter(x => isRv(x) && !x.ok).length;
+  const saved = SH.st.filter(x => x && !isRv(x)).length, left = SH.N - done - wrong - saved;
+  $('shSolved').textContent = done;
+  $('shFill').style.width = (SH.N ? done / SH.N * 100 : 0) + '%';
+  const all = done === SH.N && SH.N;
+  let times = '';
+  if(timerOn() && SH.total > 0){
+    const rec = SH.t.map((ms, i) => ({ i, ms })).filter(x => x.ms > 0);
+    const answered = SH.st.filter(Boolean).length;
+    const avg = answered ? SH.t.reduce((a, ms, i) => a + (SH.st[i] ? ms : 0), 0) / answered : 0;
+    const per = SH.cfg.per * 1000, over = SH.cfg.timer === 'target' ? rec.filter(x => x.ms > per).length : 0;
+    times = `<div class="ss-sum-time">
+        <div><b>${fmt(SH.total)}</b><span>Total time</span></div>
+        <div><b>${answered ? fmt(avg) : '—'}</b><span>Average per question</span></div>
+        ${SH.cfg.timer === 'target' ? `<div><b class="${over ? 'r' : 'g'}">${over}</b><span>Over ${perTxt(SH.cfg.per)}</span></div>` : ''}
+      </div>
+      ${rec.length ? `<div class="ss-qt">${rec.map(x => `<button type="button" data-jump="${x.i}" class="qt${SH.cfg.timer === 'target' && x.ms > per ? ' over' : ''}${isRv(SH.st[x.i]) ? (SH.st[x.i].ok ? ' ok' : ' bad') : ''}">Q${x.i + 1}<b>${fmt(x.ms)}</b></button>`).join('')}</div>` : ''}`;
+  }
+  const bits = [];
+  if(wrong) bits.push(`${wrong} need${wrong > 1 ? '' : 's'} another try`);
+  if(saved) bits.push(`${saved} answered, answer${saved > 1 ? 's' : ''} not shown yet`);
+  if(left) bits.push(`${left} not tried yet`);
+  $('sheetEnd').innerHTML = `<div class="card sheet-sum${all ? ' all' : ''}">
+      ${all ? `<div class="ss-big">🏆 Sheet complete!</div><p>All ${SH.N} questions solved correctly.</p>`
+            : `<div class="ss-big">${done} / ${SH.N} solved</div><p>${bits.join(' · ')}</p>`}
+      ${times}
+      <div class="ss-btns">${saved ? '<button type="button" class="btn green" data-reveal="all">🔓 Show all answers</button>' : ''}
+        <button type="button" class="btn light" id="shResetAll">↺ Reset Whole Sheet</button>
+        <button type="button" class="btn" id="shBack2">← Back to Sheets</button></div></div>`;
+  paintStatus();
+}
+
+/* ---------- status panel ---------- */
+function paintStatus(){
+  if(!SH) return;
+  const done = SH.st.filter(x => isRv(x) && x.ok).length, wrong = SH.st.filter(x => isRv(x) && !x.ok).length;
+  const ans = SH.st.filter(Boolean).length;
+  let clk = '—', lbl = 'Timer off', cls = '';
+  if(timerOn()){
+    if(SH.cfg.timer === 'target'){
+      const rem = limitMs() - SH.total;
+      lbl = rem >= 0 ? 'Time left' : 'Overtime'; clk = (rem < 0 ? '+' : '') + fmt(Math.abs(rem));
+      cls = rem < 0 ? 'over' : (rem < 60000 ? 'warn' : '');
+    } else { lbl = 'Time taken'; clk = fmt(SH.total); }
+    if(!SH.started) lbl += ' · not started'; else if(!SH.run) lbl += ' · paused';
+  }
+  $('ssClkLbl').textContent = lbl; $('ssClk').textContent = clk; $('ssClk').className = cls;
+  const c = SH.cur;
+  $('ssNow').innerHTML = timerOn() && c >= 0
+    ? `On <b>Q${c + 1}</b> · ${fmt(SH.t[c] || 0)}${SH.cfg.timer === 'target' ? ' / ' + fmt(SH.cfg.per * 1000) : ''}${SH.st[c] ? ' <i>(answered)</i>' : ''}`
+    : (timerOn() ? 'Scroll to a question to start its clock' : 'Switch the timer on in Practice settings');
+  $('ssAns').textContent = ans + '/' + SH.N; $('ssOk').textContent = done; $('ssBad').textContent = wrong;
+  $('ssMode').textContent = 'Answers: ' + (!blkSize() ? 'immediately' : SH.cfg.reveal === 'end' ? 'at the end' : 'after every ' + blkSize());
+  const run = $('ssRun'); run.hidden = !timerOn();
+  run.textContent = !SH.started ? '▶ Start' : (SH.run ? '❚❚ Pause' : '▶ Resume');
+  run.className = 'btn small ' + (SH.run ? 'light' : 'green');
+  const hidden = SH.st.filter(x => x && !isRv(x)).length;
+  $('ssReveal').hidden = !blkSize() || SH.rb.length >= nBlocks() && SH.rb.every(Boolean) && !hidden;
+  $('ssPill').innerHTML = `<span>${timerOn() ? '⏱ <b class="' + cls + '">' + clk + '</b> · ' : ''}${done}/${SH.N} ✓</span><span class="ss-ex">▢</span>`;
+  if(c >= 0) paintQTime(c);
+}
+function setRun(on){
+  if(on && !SH.started){ SH.started = true; toast('⏱ Timer started. Your time on each question is recorded.'); }
+  SH.run = !!on; SH.lastT = performance.now(); saveSheet(); paintCfgFoot(); paintStatus();
+  if(SH.cur >= 0) paintQTime(SH.cur);
+}
+/* the question whose box is at about 40% of the screen height is the one being solved */
+function activeQ(){
+  const y = innerHeight * 0.42; let best = -1, bd = 1e9;
+  for(let i = 0; i < SH.N; i++){
+    const el = $('sq' + i); if(!el) continue;
+    const r = el.getBoundingClientRect();
+    if(r.top <= y && r.bottom >= y) return i;
+    const d = Math.min(Math.abs(r.top - y), Math.abs(r.bottom - y));
+    if(d < bd){ bd = d; best = i; }
+  }
+  return bd < 200 ? best : -1;
+}
+setInterval(() => {
+  if(!SH || !$('sheet').classList.contains('active')) { if(SH) SH.lastT = performance.now(); return; }
+  const now = performance.now(), dt = SH.lastT ? Math.min(2000, now - SH.lastT) : 0; SH.lastT = now;
+  const prev = SH.cur; SH.cur = timerOn() ? activeQ() : -1;
+  if(prev !== SH.cur && prev >= 0) paintQTime(prev);
+  if(timerOn() && SH.run && document.visibilityState === 'visible'){
+    SH.total += dt;
+    if(SH.cur >= 0 && !SH.st[SH.cur]) SH.t[SH.cur] = (SH.t[SH.cur] || 0) + dt;
+    if(SH.cfg.timer === 'target' && !SH.timeUp && SH.total >= limitMs()){
+      SH.timeUp = true; toast("⏰ Time's up! You can keep going — extra time is shown as overtime.", 6000);
+    }
+    if(now - SH.lastSave > 5000) saveSheet();
+  }
+  paintStatus();
+}, 500);
+document.addEventListener('visibilitychange', () => { if(SH) SH.lastT = performance.now(); });
+
+/* ---------- answering ---------- */
 function answerSq(i, a, x, y){
-  const q = SH.Q[i]; if(SH.st[i]) return;
+  const q = SH.Q[i]; if(isRv(SH.st[i])) return;
+  if(timerOn() && !SH.started) setRun(true);
   let ok;
   if(q.bonus) ok = true;
   else if(q.type === 'mcq') ok = Number(a) === Number(q.ans);
   else ok = Math.abs(parseFloat(a) - Number(q.ans)) <= (q.tol != null ? Number(q.tol) : 0.001) + 1e-9;
-  SH.tries[i] = (SH.tries[i] || 0) + 1;
-  SH.st[i] = { a, ok };
-  saveSheet(); paintSq(i); paintProgress();
   const el = $('sq' + i);
-  if(ok){
-    burst(x, y, false);
-    if(SH.st.every(s => s && s.ok)) setTimeout(() => { burst(innerWidth / 2, innerHeight * 0.45, true); toast('🏆 Fantastic! You solved the whole sheet.', 5000); }, 450);
-  } else {
-    el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake');
+  if(liveCheck(i)){
+    SH.tries[i] = (SH.tries[i] || 0) + 1;
+    SH.st[i] = { a, ok, rv: true };
+    saveSheet(); paintSq(i); paintProgress();
+    if(ok){
+      burst(x, y, false);
+      if(SH.st.every(s => isRv(s) && s.ok)) setTimeout(() => { burst(innerWidth / 2, innerHeight * 0.45, true); toast('🏆 Fantastic! You solved the whole sheet.', 5000); }, 450);
+    } else { el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); }
+    return;
   }
+  if(!SH.st[i]) SH.tries[i] = (SH.tries[i] || 0) + 1;     // answers stay hidden: save (can be changed until shown)
+  SH.st[i] = { a, ok, rv: false };
+  saveSheet(); paintSq(i);
+  const b = blkOf(i); paintBlock(b); paintProgress();
+  const [s, e] = blkRange(b); let full = true;
+  for(let k = s; k <= e; k++) if(!SH.st[k]) { full = false; break; }
+  if(full) setTimeout(() => revealBlock(b), 450);
 }
-function clearSq(i){ SH.st[i] = null; saveSheet(); const el = $('sq' + i); if(SH.Q[i].type !== 'mcq'){ const inp = el.querySelector('.sq-in'); inp.value = ''; } paintSq(i); paintProgress(); }
+function revealBlock(b, quiet){
+  if(SH.rb[b]) return { ok: 0, n: 0 };
+  const [s, e] = blkRange(b); let ok = 0;
+  SH.rb[b] = true;
+  for(let i = s; i <= e; i++){ if(SH.st[i]){ SH.st[i].rv = true; if(SH.st[i].ok) ok++; } paintSq(i); }
+  saveSheet(); paintBlock(b); paintProgress();
+  if(!quiet){
+    const n = e - s + 1, lbl = SH.cfg.reveal === 'end' ? 'All answers' : `Q${s + 1}–Q${e + 1}`;
+    toast(`${lbl}: ${ok}/${n} correct${ok === n ? ' 🎉' : ''}`, 4500);
+    const r = $('blk' + b) && $('blk' + b).getBoundingClientRect();
+    if(ok) burst(r && r.top > 0 && r.top < innerHeight ? innerWidth / 2 : innerWidth / 2, r && r.top > 0 && r.top < innerHeight ? r.top : innerHeight * 0.5, ok === n);
+  }
+  return { ok, n: e - s + 1 };
+}
+function revealAll(){
+  let ok = 0, n = 0;
+  for(let b = 0; b < nBlocks(); b++){ const r = revealBlock(b, true); ok += r.ok; n += r.n; }
+  const tot = SH.st.filter(x => isRv(x) && x.ok).length, ans = SH.st.filter(Boolean).length;
+  toast(`Answers shown: ${tot} correct out of ${ans} answered.`, 5000);
+  if(tot) burst(innerWidth / 2, innerHeight * 0.45, tot === SH.N);
+}
+function clearSq(i){ SH.st[i] = null; saveSheet(); const el = $('sq' + i); if(SH.Q[i].type !== 'mcq'){ el.querySelector('.sq-in').value = ''; } paintSq(i); paintProgress(); }
+function checkNum(i){
+  const el = $('sq' + i), inp = el.querySelector('.sq-in'), v = inp.value.trim();
+  if(!/^-?\d+(\.\d+)?$/.test(v) && !/^-?\.\d+$/.test(v)){
+    el.querySelector('.sq-fb').innerHTML = '<span class="fb-bad">Please type a number (e.g. 12, -3 or 2.5).</span>'; inp.focus(); return;
+  }
+  const r = el.querySelector('.sq-check').getBoundingClientRect();
+  answerSq(i, v, r.left + r.width / 2, r.top + r.height / 2);
+}
 
+/* ---------- settings changes ---------- */
+function changeCfg(key, val){
+  SH.cfg[key] = val; LS.set('stp_sheet_cfg', SH.cfg);
+  if(key === 'reveal'){
+    const curQ = SH.cur >= 0 ? SH.cur : activeQ();
+    SH.rb = [];
+    if(!blkSize()) SH.st.forEach(x => { if(x) x.rv = true; });
+    else for(let b = 0; b < nBlocks(); b++){                 // blocks already fully answered: show them
+      const [s, e] = blkRange(b); let full = true;
+      for(let k = s; k <= e; k++) if(!SH.st[k]) { full = false; break; }
+      if(full){ SH.rb[b] = true; for(let k = s; k <= e; k++) SH.st[k].rv = true; }
+    }
+    saveSheet(); renderSheet();
+    if(curQ > 0){ const el = $('sq' + curQ); if(el) el.scrollIntoView({ block: 'start' }); }
+    toast(!blkSize() ? 'Answers will now be shown immediately.' : (val === 'end' ? 'Answers will be shown at the end.' : `Answers will be shown after every ${val} questions.`));
+    return;
+  }
+  if(key === 'timer'){
+    $('cfgPerF').hidden = val !== 'target';
+    if(val === 'off') SH.run = false;
+    else if(!SH.started || !SH.run){ saveSheet(); setRun(true); }      // choosing a timer starts it
+    SH.timeUp = SH.cfg.timer === 'target' && SH.total >= limitMs();
+  }
+  if(key === 'per') SH.timeUp = SH.total >= limitMs();
+  saveSheet(); paintCfgFoot(); SH.Q.forEach((q, i) => paintQTime(i)); paintProgress();
+}
+
+$('sheet').addEventListener('change', e => {
+  if(!SH) return;
+  if(e.target.id === 'cfgReveal') changeCfg('reveal', e.target.value === 'end' ? 'end' : Number(e.target.value));
+  else if(e.target.id === 'cfgTimer') changeCfg('timer', e.target.value);
+  else if(e.target.id === 'cfgPer') changeCfg('per', Number(e.target.value));
+});
 $('sheet').addEventListener('click', e => {
+  if(!SH) return;
   const jump = e.target.closest('[data-jump]');
   if(jump){ const el = $('sq' + jump.dataset.jump); if(el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
-  if(e.target.closest('#sheetBack') || e.target.closest('#shBack2')){ renderPapers(); show('papers'); return; }
+  if(e.target.closest('#sheetBack') || e.target.closest('#shBack2')){ if(SH.run) setRun(false); renderPapers(); show('papers'); return; }
+  if(e.target.closest('[data-run]') || e.target.closest('#ssRun')){ setRun(!SH.run); return; }
+  if(e.target.closest('#ssMin')){ $('shStat').classList.add('min'); LS.set('stp_sheet_min', true); return; }
+  if(e.target.closest('#ssPill')){ $('shStat').classList.remove('min'); LS.set('stp_sheet_min', false); return; }
+  const rv = e.target.closest('[data-reveal]') || e.target.closest('#ssReveal');
+  if(rv){
+    const b = rv.dataset ? rv.dataset.reveal : undefined;
+    if(b === undefined || b === 'all'){ if(confirm('Show all answers now? Answers you have not given yet will be checked as soon as you answer them.')) revealAll(); }
+    else revealBlock(+b);
+    return;
+  }
   if(e.target.closest('#shResetAll')){
-    if(!confirm('Reset the whole sheet? All your answers on this sheet will be cleared.')) return;
-    SH.st = SH.st.map(() => null); SH.tries = SH.tries.map(() => 0); saveSheet();
-    SH.Q.forEach((q, i) => { if(q.type !== 'mcq') $('sq' + i).querySelector('.sq-in').value = ''; paintSq(i); });
-    paintProgress(); window.scrollTo({ top: 0, behavior: 'smooth' }); return;
+    if(!confirm('Reset the whole sheet? All your answers and times on this sheet will be cleared.')) return;
+    SH.st = SH.st.map(() => null); SH.tries = SH.tries.map(() => 0); SH.t = SH.t.map(() => 0);
+    SH.rb = []; SH.total = 0; SH.started = false; SH.run = false; SH.timeUp = false;
+    saveSheet(); renderSheet(); window.scrollTo({ top: 0, behavior: 'smooth' }); return;
   }
   const card = e.target.closest('.sq'); if(!card) return;
   const i = +card.dataset.i;
@@ -1438,14 +1722,6 @@ $('sheet').addEventListener('click', e => {
 $('sheet').addEventListener('keydown', e => {
   if(e.key === 'Enter' && e.target.classList.contains('sq-in')){ e.preventDefault(); checkNum(+e.target.closest('.sq').dataset.i); }
 });
-function checkNum(i){
-  const el = $('sq' + i), inp = el.querySelector('.sq-in'), v = inp.value.trim();
-  if(!/^-?\d+(\.\d+)?$/.test(v) && !/^-?\.\d+$/.test(v)){
-    el.querySelector('.sq-fb').innerHTML = '<span class="fb-bad">Please type a number (e.g. 12, -3 or 2.5).</span>'; inp.focus(); return;
-  }
-  const r = el.querySelector('.sq-check').getBoundingClientRect();
-  answerSq(i, v, r.left + r.width / 2, r.top + r.height / 2);
-}
 
 /* small "cracker" burst at the tapped option; a big one when the sheet is complete */
 function burst(x, y, big){

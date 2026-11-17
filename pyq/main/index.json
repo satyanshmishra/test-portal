@@ -1,8 +1,8 @@
 {
  "exam": "JEE Main",
  "prefix": "M",
- "version": "c21eeb0e90",
- "total": 562,
+ "version": "7dfbad994d",
+ "total": 796,
  "years": [
   2002,
   2003,
@@ -286,6 +286,69 @@
      "title": "Variance after removing or adding observations",
      "n": 7,
      "times": 7
+    }
+   ]
+  },
+  {
+   "id": "15",
+   "title": "Probability",
+   "file": "15_probability.json",
+   "n": 234,
+   "nMrq": 186,
+   "subs": [
+    {
+     "id": "15.1",
+     "title": "Addition Theorem, Conditional Probability and Bayes' Theorem",
+     "n": 160
+    },
+    {
+     "id": "15.2",
+     "title": "Probability Distributions of a Random Variable",
+     "n": 74
+    }
+   ],
+   "mrq": [
+    {
+     "id": "RA",
+     "title": "Total probability and Bayes' theorem",
+     "n": 32,
+     "times": 32
+    },
+    {
+     "id": "RB",
+     "title": "Classical probability by counting",
+     "n": 52,
+     "times": 52
+    },
+    {
+     "id": "RC",
+     "title": "Algebra of events and conditional probability",
+     "n": 25,
+     "times": 25
+    },
+    {
+     "id": "RD",
+     "title": "Binomial distribution",
+     "n": 37,
+     "times": 37
+    },
+    {
+     "id": "RE",
+     "title": "Random variables: mean and variance",
+     "n": 25,
+     "times": 25
+    },
+    {
+     "id": "RF",
+     "title": "Repeated trials and games until an event",
+     "n": 9,
+     "times": 9
+    },
+    {
+     "id": "RG",
+     "title": "Probability involving roots of a quadratic",
+     "n": 6,
+     "times": 6
     }
    ]
   }

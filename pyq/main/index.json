@@ -1,8 +1,8 @@
 {
  "exam": "JEE Main",
  "prefix": "M",
- "version": "7dfbad994d",
- "total": 796,
+ "version": "0fd9c62a8e",
+ "total": 1028,
  "years": [
   2002,
   2003,
@@ -194,6 +194,69 @@
      "title": "Integral and rational roots",
      "n": 4,
      "times": 4
+    }
+   ]
+  },
+  {
+   "id": "5",
+   "title": "Permutations and Combinations",
+   "file": "05_permutations_and_combinations.json",
+   "n": 232,
+   "nMrq": 164,
+   "subs": [
+    {
+     "id": "5.1",
+     "title": "Permutations",
+     "n": 116
+    },
+    {
+     "id": "5.2",
+     "title": "Combinations",
+     "n": 116
+    }
+   ],
+   "mrq": [
+    {
+     "id": "PA",
+     "title": "Arrangements with restrictions (together, never together, gaps)",
+     "n": 19,
+     "times": 19
+    },
+    {
+     "id": "PB",
+     "title": "Rank of a word in the dictionary",
+     "n": 17,
+     "times": 17
+    },
+    {
+     "id": "PC",
+     "title": "Forming numbers with given digits and divisibility conditions",
+     "n": 32,
+     "times": 32
+    },
+    {
+     "id": "PD",
+     "title": "Digit sums and integer solutions of equations",
+     "n": 18,
+     "times": 18
+    },
+    {
+     "id": "PE",
+     "title": "Distribution, grouping and counting functions",
+     "n": 23,
+     "times": 23
+    },
+    {
+     "id": "PF",
+     "title": "Divisibility, gcd and prime powers in n!",
+     "n": 15,
+     "times": 15
+    },
+    {
+     "id": "PG",
+     "title": "Selections, committees and geometric counting",
+     "n": 40,
+     "times": 40
     }
    ]
   },

@@ -1,8 +1,8 @@
 {
  "exam": "JEE Main",
  "prefix": "M",
- "version": "984d7ed28d",
- "total": 1979,
+ "version": "c114b4189f",
+ "total": 2266,
  "years": [
   2002,
   2003,
@@ -31,6 +31,68 @@
   2026
  ],
  "units": [
+  {
+   "id": "1",
+   "title": "Sets, Relations and Functions",
+   "file": "01_sets_relations_and_functions.json",
+   "n": 287,
+   "nMrq": 221,
+   "subs": [
+    {
+     "id": "1.1",
+     "title": "Sets",
+     "n": 46
+    },
+    {
+     "id": "1.2",
+     "title": "Relations",
+     "n": 81
+    },
+    {
+     "id": "1.3",
+     "title": "Functions",
+     "n": 160
+    }
+   ],
+   "mrq": [
+    {
+     "id": "FE",
+     "title": "Sets: subsets, set operations and counting",
+     "n": 18,
+     "times": 18
+    },
+    {
+     "id": "FB",
+     "title": "Number of elements in a relation",
+     "n": 23,
+     "times": 23
+    },
+    {
+     "id": "FF",
+     "title": "Reflexive, symmetric, transitive and equivalence relations",
+     "n": 50,
+     "times": 50
+    },
+    {
+     "id": "FA",
+     "title": "Domain of a function",
+     "n": 28,
+     "times": 28
+    },
+    {
+     "id": "FC",
+     "title": "Types of functions, counting functions and range",
+     "n": 59,
+     "times": 59
+    },
+    {
+     "id": "FD",
+     "title": "Composite functions and functional equations",
+     "n": 43,
+     "times": 43
+    }
+   ]
+  },
   {
    "id": "2",
    "title": "Complex Numbers",

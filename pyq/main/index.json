@@ -1,0 +1,127 @@
+{
+ "exam": "JEE Main",
+ "prefix": "M",
+ "version": "17b705261e",
+ "total": 158,
+ "years": [
+  2002,
+  2003,
+  2004,
+  2005,
+  2006,
+  2007,
+  2008,
+  2009,
+  2010,
+  2011,
+  2012,
+  2013,
+  2014,
+  2015,
+  2016,
+  2017,
+  2018,
+  2019,
+  2020,
+  2021,
+  2022,
+  2023,
+  2024,
+  2025,
+  2026
+ ],
+ "units": [
+  {
+   "id": "14",
+   "title": "Statistics",
+   "file": "14_statistics.json",
+   "n": 158,
+   "nMrq": 115,
+   "subs": [
+    {
+     "id": "14.1",
+     "title": "Measures of Central Tendency",
+     "n": 23
+    },
+    {
+     "id": "14.2",
+     "title": "Empirical Relation",
+     "n": 1
+    },
+    {
+     "id": "14.3",
+     "title": "Measures of Dispersion",
+     "n": 134
+    }
+   ],
+   "mrq": [
+    {
+     "id": "C1",
+     "title": "Median and mean of grouped data with unknown frequencies",
+     "n": 5,
+     "times": 5
+    },
+    {
+     "id": "C2",
+     "title": "Mean of data defined by a formula (A.P., binomial coefficients, products)",
+     "n": 6,
+     "times": 6
+    },
+    {
+     "id": "C5",
+     "title": "Finding unknown observations from the mean and variance",
+     "n": 24,
+     "times": 24
+    },
+    {
+     "id": "C6",
+     "title": "Corrected mean and variance after a wrongly recorded observation",
+     "n": 15,
+     "times": 15
+    },
+    {
+     "id": "C8",
+     "title": "Mean and variance from shifted sums Σ(xᵢ − a) and Σ(xᵢ − a)²",
+     "n": 10,
+     "times": 10
+    },
+    {
+     "id": "C9",
+     "title": "Mean deviation about the mean, median or mode",
+     "n": 15,
+     "times": 15
+    },
+    {
+     "id": "C10",
+     "title": "Combined mean and variance of two groups",
+     "n": 9,
+     "times": 9
+    },
+    {
+     "id": "C11",
+     "title": "Variance of a frequency distribution with an unknown",
+     "n": 9,
+     "times": 9
+    },
+    {
+     "id": "C12",
+     "title": "Variance of an A.P. and of standard sequences",
+     "n": 8,
+     "times": 8
+    },
+    {
+     "id": "C13",
+     "title": "Effect of change of origin and scale",
+     "n": 7,
+     "times": 7
+    },
+    {
+     "id": "C14",
+     "title": "Variance after removing or adding observations",
+     "n": 7,
+     "times": 7
+    }
+   ]
+  }
+ ]
+}

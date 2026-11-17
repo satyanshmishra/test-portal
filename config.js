@@ -16,12 +16,17 @@ window.APP_CONFIG = {
     { id: "topic",  title: "Topic-wise Papers",      desc: "Chapter and topic tests",                    icon: "📘", bySubject: true },
     { id: "full",   title: "Full Syllabus Papers",   desc: "Tests on the complete syllabus",             icon: "📚" },
     { id: "main3h", title: "JEE Main 3-Hour Papers", desc: "Full-length papers in the JEE Main pattern", icon: "⏱️", allSubjects: true },
-    { id: "sheet",  title: "Practice Sheets",        desc: "Tap an option, check instantly, see solutions", icon: "📝", practice: true }
+    { id: "sheet",  title: "Practice Sheets",        desc: "Tap an option, check instantly, see solutions", icon: "📝", practice: true },
+    { id: "pyq",    title: "IIT JEE PYQs Practice",  desc: "Year-wise, topic-wise and sub-topic-wise previous year questions", icon: "🎯", pyq: true }
   ],
 
   /* Subjects. Set show: true to switch Physics / Chemistry on later.
      With only one subject on, Topic-wise opens straight to the paper list.
      Papers whose Subject mentions a switched-off subject are not shown to students. */
+  /* PYQ Practice: show the exam/date tag (e.g. "JEE Main 2025 · 22 Jan Shift 1") on every question card.
+     false = the tag is shown only inside the solution. */
+  PYQ_SHOW_SOURCE: true,
+
   SUBJECTS: [
     { name: "Mathematics", show: true,  icon: "📐" },
     { name: "Physics",     show: false, icon: "🧲" },

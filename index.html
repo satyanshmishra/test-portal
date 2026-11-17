@@ -299,6 +299,28 @@ window.MathJax = {
 </section>
 
 <!-- ================= SUMMARY MODAL ================= -->
+<!-- ================= PYQ PRACTICE ================= -->
+<section id="pyq" class="screen">
+  <header class="topbar appbar">
+    <div class="topbar-in">
+      <div class="tb-left"><div class="t1 js-brand-plain"></div><div class="t2" id="pyqTopT">PYQs Practice</div></div>
+      <div class="pyq-tb-btns">
+        <button class="btn small onbrand pyq-fbtn" id="pyqFilterBtn" type="button">☰ Filters</button>
+        <button class="btn small onbrand" id="pyqBack" type="button">← Folders</button>
+      </div>
+    </div>
+  </header>
+  <div class="pyq-layout">
+    <aside class="pyq-side" id="pyqSide" aria-label="PYQ filters"></aside>
+    <div class="pyq-scrim" id="pyqScrim"></div>
+    <main class="pyq-main">
+      <div class="card pyq-head" id="pyqHead"></div>
+      <div id="pyqList"></div>
+      <nav class="pyq-pager" id="pyqPager"></nav>
+    </main>
+  </div>
+</section>
+
 <div class="modal" id="summaryModal" role="dialog" aria-modal="true" aria-labelledby="sumTitle">
   <div class="modal-card">
     <h2 id="sumTitle">Exam Summary</h2>
@@ -659,6 +681,7 @@ function renderPapers(){
     const nRes=Object.keys(ATTEMPTS).length+(LIVE_HIST?LIVE_HIST.length:0);
     grid.innerHTML = FOLDERS.filter(f=>!f.hidden).map(f=>{
       const list=papersIn(f.id);
+      if(f.pyq) return pyqFolderCard(f);
       return f.practice
         ? folderCard(f.icon||'📝', f.title, f.desc||'', list.length, sheetsDone(list), {level:'folder', cat:f.id}, '', 'sheet')
         : folderCard(f.icon||'📁', f.title, f.desc||'', list.length, doneCount(list), {level:'folder', cat:f.id});
@@ -667,6 +690,7 @@ function renderPapers(){
     return;
   }
   if(VIEW.level==='results') return renderResults();
+  if(VIEW.level==='pyq') return renderPyqFolders();
   const f=folderOf(VIEW.cat)||FOLDERS[0];
   const subs=shownSubjects();
   if(VIEW.level==='folder' && f.bySubject && subs.length>1){      // subject sub-folders (only when 2+ subjects are on)
@@ -1793,5 +1817,6 @@ window.addEventListener('hashchange',()=>{ if(/access_token=|error_description=/
   busy(false);
 })();
 </script>
+<script src="assets/pyq.js"></script>
 </body>
 </html>

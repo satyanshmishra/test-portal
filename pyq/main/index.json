@@ -1,8 +1,8 @@
 {
  "exam": "JEE Main",
  "prefix": "M",
- "version": "d92b768657",
- "total": 2734,
+ "version": "026c662c35",
+ "total": 3014,
  "years": [
   2002,
   2003,
@@ -681,6 +681,55 @@
      "title": "Direction cosines, angles and lines perpendicular to given lines",
      "n": 30,
      "times": 30
+    }
+   ]
+  },
+  {
+   "id": "13",
+   "title": "Vector Algebra",
+   "file": "13_vector_algebra.json",
+   "n": 280,
+   "nMrq": 227,
+   "subs": [
+    {
+     "id": "13.1",
+     "title": "Algebra and Modulus of Vectors",
+     "n": 23
+    },
+    {
+     "id": "13.2",
+     "title": "Scalar or Dot Product",
+     "n": 63
+    },
+    {
+     "id": "13.3",
+     "title": "Vector or Cross Product",
+     "n": 104
+    },
+    {
+     "id": "13.4",
+     "title": "Scalar and Vector Triple Product",
+     "n": 90
+    }
+   ],
+   "mrq": [
+    {
+     "id": "VA",
+     "title": "Vector equations with cross products",
+     "n": 68,
+     "times": 68
+    },
+    {
+     "id": "VB",
+     "title": "Magnitudes, angles and areas using dot and cross products",
+     "n": 78,
+     "times": 78
+    },
+    {
+     "id": "VC",
+     "title": "Projections, coplanar vectors and triple products",
+     "n": 81,
+     "times": 81
     }
    ]
   },

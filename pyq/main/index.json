@@ -1,8 +1,8 @@
 {
  "exam": "JEE Main",
  "prefix": "M",
- "version": "33c11ba943",
- "total": 3845,
+ "version": "bc6c28d2ab",
+ "total": 4417,
  "years": [
   2002,
   2003,
@@ -706,6 +706,80 @@
      "title": "Number of real roots via calculus",
      "n": 5,
      "times": 5
+    }
+   ]
+  },
+  {
+   "id": "9",
+   "title": "Integral Calculus",
+   "file": "09_integral_calculus.json",
+   "n": 572,
+   "nMrq": 213,
+   "subs": [
+    {
+     "id": "9.1",
+     "title": "Indefinite Integrals",
+     "n": 93
+    },
+    {
+     "id": "9.2",
+     "title": "Definite Integrals",
+     "n": 307
+    },
+    {
+     "id": "9.3",
+     "title": "Area of Bounded Region",
+     "n": 172
+    }
+   ],
+   "mrq": [
+    {
+     "id": "IA",
+     "title": "Indefinite integrals",
+     "n": 10,
+     "times": 10
+    },
+    {
+     "id": "IB",
+     "title": "Properties of definite integrals",
+     "n": 10,
+     "times": 10
+    },
+    {
+     "id": "IC",
+     "title": "Evaluation of definite integrals",
+     "n": 10,
+     "times": 10
+    },
+    {
+     "id": "ID",
+     "title": "Integrals with [x], |x| and sums",
+     "n": 10,
+     "times": 10
+    },
+    {
+     "id": "IE",
+     "title": "Leibniz rule and integral equations",
+     "n": 8,
+     "times": 8
+    },
+    {
+     "id": "IG",
+     "title": "Beta-type integrals and reduction formulae",
+     "n": 4,
+     "times": 4
+    },
+    {
+     "id": "RA",
+     "title": "Area between parabolas, polynomials and lines",
+     "n": 104,
+     "times": 104
+    },
+    {
+     "id": "RB",
+     "title": "Area with other curves",
+     "n": 57,
+     "times": 57
     }
    ]
   },

@@ -1,8 +1,8 @@
 {
  "exam": "JEE Main",
  "prefix": "M",
- "version": "0fd9c62a8e",
- "total": 1028,
+ "version": "7df9609b3f",
+ "total": 1267,
  "years": [
   2002,
   2003,
@@ -257,6 +257,74 @@
      "title": "Selections, committees and geometric counting",
      "n": 40,
      "times": 40
+    }
+   ]
+  },
+  {
+   "id": "6",
+   "title": "Binomial Theorem",
+   "file": "06_binomial_theorem.json",
+   "n": 239,
+   "nMrq": 188,
+   "subs": [
+    {
+     "id": "6.1",
+     "title": "Expansion of Binomial Theorem",
+     "n": 101
+    },
+    {
+     "id": "6.2",
+     "title": "General and Middle Terms",
+     "n": 125
+    },
+    {
+     "id": "6.3",
+     "title": "Multinomial Theorem",
+     "n": 13
+    }
+   ],
+   "mrq": [
+    {
+     "id": "BA",
+     "title": "Independent term and coefficient of a given power",
+     "n": 37,
+     "times": 37
+    },
+    {
+     "id": "BB",
+     "title": "Coefficients of consecutive terms, middle term and terms from the end",
+     "n": 31,
+     "times": 31
+    },
+    {
+     "id": "BC",
+     "title": "Rational and integral terms",
+     "n": 15,
+     "times": 15
+    },
+    {
+     "id": "BD",
+     "title": "Coefficient in a product or sum of expansions",
+     "n": 36,
+     "times": 36
+    },
+    {
+     "id": "BE",
+     "title": "Remainders and divisibility",
+     "n": 31,
+     "times": 31
+    },
+    {
+     "id": "BF",
+     "title": "Series with r·Cᵣ, r²·Cᵣ and Cᵣ/(r+1)",
+     "n": 20,
+     "times": 20
+    },
+    {
+     "id": "BG",
+     "title": "Products and identities of binomial coefficients",
+     "n": 18,
+     "times": 18
     }
    ]
   },

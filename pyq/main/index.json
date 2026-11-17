@@ -1,8 +1,8 @@
 {
  "exam": "JEE Main",
  "prefix": "M",
- "version": "17b705261e",
- "total": 158,
+ "version": "c34f92a853",
+ "total": 348,
  "years": [
   2002,
   2003,
@@ -31,6 +31,92 @@
   2026
  ],
  "units": [
+  {
+   "id": "2",
+   "title": "Complex Numbers",
+   "file": "02_complex_numbers.json",
+   "n": 190,
+   "nMrq": 101,
+   "subs": [
+    {
+     "id": "2.1",
+     "title": "Algebra of Complex Numbers",
+     "n": 36
+    },
+    {
+     "id": "2.2",
+     "title": "Modulus and Conjugate",
+     "n": 65
+    },
+    {
+     "id": "2.3",
+     "title": "Geometry of Argand Plane",
+     "n": 89
+    }
+   ],
+   "mrq": [
+    {
+     "id": "CA",
+     "title": "Purely real and purely imaginary conditions",
+     "n": 10,
+     "times": 10
+    },
+    {
+     "id": "CB",
+     "title": "Powers of i, ω and roots of unity",
+     "n": 10,
+     "times": 10
+    },
+    {
+     "id": "CH",
+     "title": "Algebra of complex numbers and modulus identities",
+     "n": 6,
+     "times": 6
+    },
+    {
+     "id": "CE",
+     "title": "Solving equations in z, z̄ and |z|",
+     "n": 15,
+     "times": 15
+    },
+    {
+     "id": "CF",
+     "title": "Polar form and De Moivre's theorem",
+     "n": 10,
+     "times": 10
+    },
+    {
+     "id": "CD",
+     "title": "Argument: arcs and argument relations",
+     "n": 9,
+     "times": 9
+    },
+    {
+     "id": "CJ",
+     "title": "Rotation and triangles in the Argand plane",
+     "n": 5,
+     "times": 5
+    },
+    {
+     "id": "CL",
+     "title": "Identifying loci: circles, lines and conics",
+     "n": 10,
+     "times": 10
+    },
+    {
+     "id": "CM",
+     "title": "Maximum and minimum of |z − z₀|",
+     "n": 13,
+     "times": 13
+    },
+    {
+     "id": "CN",
+     "title": "Regions: intersections, counting points and areas",
+     "n": 13,
+     "times": 13
+    }
+   ]
+  },
   {
    "id": "14",
    "title": "Statistics",

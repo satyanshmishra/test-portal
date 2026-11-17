@@ -1,8 +1,8 @@
 {
  "exam": "JEE Main",
  "prefix": "M",
- "version": "026c662c35",
- "total": 3014,
+ "version": "fc3b458225",
+ "total": 3302,
  "years": [
   2002,
   2003,
@@ -885,6 +885,67 @@
      "title": "Probability involving roots of a quadratic",
      "n": 6,
      "times": 6
+    }
+   ]
+  },
+  {
+   "id": "16",
+   "title": "Trigonometry",
+   "file": "16_trigonometry.json",
+   "n": 288,
+   "nMrq": 245,
+   "subs": [
+    {
+     "id": "16.1",
+     "title": "Trigonometric Ratios and Identities",
+     "n": 70
+    },
+    {
+     "id": "16.2",
+     "title": "Trigonometric Equations",
+     "n": 78
+    },
+    {
+     "id": "16.3",
+     "title": "Inverse Trigonometric Functions",
+     "n": 106
+    },
+    {
+     "id": "16.4",
+     "title": "Solution of Triangles",
+     "n": 34
+    }
+   ],
+   "mrq": [
+    {
+     "id": "TA",
+     "title": "Values of trigonometric expressions",
+     "n": 30,
+     "times": 30
+    },
+    {
+     "id": "TB",
+     "title": "Identities with given conditions",
+     "n": 24,
+     "times": 24
+    },
+    {
+     "id": "TC",
+     "title": "Trigonometric equations",
+     "n": 66,
+     "times": 66
+    },
+    {
+     "id": "TD",
+     "title": "Maximum and minimum values",
+     "n": 19,
+     "times": 19
+    },
+    {
+     "id": "TE",
+     "title": "Inverse trigonometric functions",
+     "n": 106,
+     "times": 106
     }
    ]
   }

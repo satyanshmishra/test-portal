@@ -1,8 +1,8 @@
 {
  "exam": "JEE Main",
  "prefix": "M",
- "version": "fc3b458225",
- "total": 3302,
+ "version": "33c11ba943",
+ "total": 3845,
  "years": [
   2002,
   2003,
@@ -580,6 +580,132 @@
      "title": "Sequences defined by a recurrence",
      "n": 6,
      "times": 6
+    }
+   ]
+  },
+  {
+   "id": "8",
+   "title": "Differential Calculus",
+   "file": "08_differential_calculus.json",
+   "n": 543,
+   "nMrq": 120,
+   "subs": [
+    {
+     "id": "8.1",
+     "title": "Limits",
+     "n": 127
+    },
+    {
+     "id": "8.2",
+     "title": "Continuity and Differentiability",
+     "n": 247
+    },
+    {
+     "id": "8.3",
+     "title": "Rate of Change of Quantities",
+     "n": 10
+    },
+    {
+     "id": "8.4",
+     "title": "Increasing and Decreasing Functions",
+     "n": 53
+    },
+    {
+     "id": "8.5",
+     "title": "Maxima and Minima of Functions",
+     "n": 106
+    }
+   ],
+   "mrq": [
+    {
+     "id": "LA",
+     "title": "Finding constants via expansions / L'Hospital",
+     "n": 10,
+     "times": 10
+    },
+    {
+     "id": "LB",
+     "title": "Standard trigonometric, log and exponential limits",
+     "n": 10,
+     "times": 10
+    },
+    {
+     "id": "LC",
+     "title": "1^infinity and power forms",
+     "n": 6,
+     "times": 6
+    },
+    {
+     "id": "LD",
+     "title": "Limits of sums and sequences",
+     "n": 6,
+     "times": 6
+    },
+    {
+     "id": "LE",
+     "title": "Limits with [x] and {x}",
+     "n": 5,
+     "times": 5
+    },
+    {
+     "id": "CA",
+     "title": "Constants for continuity / differentiability",
+     "n": 10,
+     "times": 10
+    },
+    {
+     "id": "CB",
+     "title": "Counting points of discontinuity / non-differentiability",
+     "n": 10,
+     "times": 10
+    },
+    {
+     "id": "CC",
+     "title": "Functional equations",
+     "n": 7,
+     "times": 7
+    },
+    {
+     "id": "CD",
+     "title": "Derivatives (higher order, implicit, parametric)",
+     "n": 10,
+     "times": 10
+    },
+    {
+     "id": "CR",
+     "title": "Rolle's and mean value theorems",
+     "n": 5,
+     "times": 5
+    },
+    {
+     "id": "AA",
+     "title": "Rate of change",
+     "n": 8,
+     "times": 8
+    },
+    {
+     "id": "AB",
+     "title": "Monotonicity",
+     "n": 10,
+     "times": 10
+    },
+    {
+     "id": "AC",
+     "title": "Maxima and minima of functions",
+     "n": 10,
+     "times": 10
+    },
+    {
+     "id": "AD",
+     "title": "Optimisation (geometry / mensuration)",
+     "n": 8,
+     "times": 8
+    },
+    {
+     "id": "AE",
+     "title": "Number of real roots via calculus",
+     "n": 5,
+     "times": 5
     }
    ]
   },

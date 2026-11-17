@@ -1,8 +1,8 @@
 {
  "exam": "JEE Main",
  "prefix": "M",
- "version": "68c319c4f6",
- "total": 1598,
+ "version": "984d7ed28d",
+ "total": 1979,
  "years": [
   2002,
   2003,
@@ -194,6 +194,91 @@
      "title": "Integral and rational roots",
      "n": 4,
      "times": 4
+    }
+   ]
+  },
+  {
+   "id": "4",
+   "title": "Matrices and Determinants",
+   "file": "04_matrices_and_determinants.json",
+   "n": 381,
+   "nMrq": 355,
+   "subs": [
+    {
+     "id": "4.1",
+     "title": "Matrices",
+     "n": 103
+    },
+    {
+     "id": "4.2",
+     "title": "Determinants",
+     "n": 82
+    },
+    {
+     "id": "4.3",
+     "title": "Adjoint and Inverse",
+     "n": 71
+    },
+    {
+     "id": "4.4",
+     "title": "System of Linear Equations",
+     "n": 125
+    }
+   ],
+   "mrq": [
+    {
+     "id": "MA",
+     "title": "Powers of a matrix, Cayley-Hamilton and matrix polynomials",
+     "n": 55,
+     "times": 55
+    },
+    {
+     "id": "MB",
+     "title": "Orthogonal matrices, rotations and similarity",
+     "n": 16,
+     "times": 16
+    },
+    {
+     "id": "MC",
+     "title": "Symmetric and skew-symmetric matrices",
+     "n": 8,
+     "times": 8
+    },
+    {
+     "id": "MD",
+     "title": "Counting matrices with given properties",
+     "n": 14,
+     "times": 14
+    },
+    {
+     "id": "ME",
+     "title": "Finding a matrix or its entries from given conditions",
+     "n": 22,
+     "times": 22
+    },
+    {
+     "id": "MF",
+     "title": "Evaluation and properties of determinants",
+     "n": 63,
+     "times": 63
+    },
+    {
+     "id": "MG",
+     "title": "Determinants of adjoints",
+     "n": 45,
+     "times": 45
+    },
+    {
+     "id": "MH",
+     "title": "Inverse and adjoint: properties and computations",
+     "n": 10,
+     "times": 10
+    },
+    {
+     "id": "MS",
+     "title": "Systems of linear equations: consistency and parameters",
+     "n": 122,
+     "times": 122
     }
    ]
   },

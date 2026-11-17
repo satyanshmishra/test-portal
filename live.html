@@ -163,14 +163,19 @@ async function onState(){
 }
 
 /* ---------------- screens ---------------- */
+let QUI = null, QEND = 0;     // QUI = question index currently on screen waiting for an answer
 function render(){
-  clearInterval(TICK);
+  if(ROW.status==='question' && QUI===ROW.q_index && ANSWERED[QUI]===undefined && $('tbar')){
+    QEND = new Date(ROW.ends_at).getTime(); return;          // host added/cut time: keep the screen (and typed answer)
+  }
+  QUI = null; clearInterval(TICK);
   const s = ROW.status, P = $('play');
   P.className=''; P.style.cssText='flex:1;display:flex;flex-direction:column';
   if(s==='lobby'){
-    P.innerHTML = `<div class="center"><div class="result float">🎮</div><div class="big">You're in!</div>
+    P.innerHTML = `<div class="center"><div class="ico ok">✓</div><div class="big">You're in!</div>
       <p class="muted" style="font-size:18px">Watch the Meet screen.<br>The quiz will start soon.</p>
-      <span class="pill" style="margin-top:12px">${esc(ROW.title)} · ${ROW.q_total} questions</span></div>`;
+      <div class="dots" style="margin:14px 0"><span></span><span></span><span></span></div>
+      <span class="pill">${esc(ROW.title)} · ${ROW.q_total} questions</span></div>`;
     return;
   }
   if(s==='question') return renderQuestion();
@@ -183,10 +188,10 @@ function renderQuestion(){
   const P=$('play'), q=ROW.q_public||{}, qi=ROW.q_index, st=new Date(ROW.starts_at).getTime(), en=new Date(ROW.ends_at).getTime();
   const key = 'q'+qi+'-'+ROW.v;
   if(ANSWERED[qi]==='—'){
-    P.innerHTML = `<div class="center"><div class="result">⏰</div><div class="big">Time's up!</div><p class="muted">Wait for the answer…</p></div>`; return;
+    P.innerHTML = `<div class="center"><div class="ico">⏱</div><div class="big">Time's up!</div><p class="muted">Wait for the answer…</p></div>`; return;
   }
   if(ANSWERED[qi]!==undefined){
-    P.innerHTML = `<div class="center"><div class="result float">🔒</div><div class="big">Answer locked</div>
+    P.innerHTML = `<div class="center"><div class="ico wait">✓</div><div class="big">Answer locked</div>
       <p class="muted" style="font-size:18px">Your answer: <b style="color:var(--ink)">${esc(ansText(q, ANSWERED[qi]))}</b><br>Wait for the others…</p></div>`;
     return;
   }
@@ -198,7 +203,7 @@ function renderQuestion(){
     draw(); TICK=setInterval(draw, 250); return;
   }
   if(serverNow() > en + 1500){
-    P.innerHTML = `<div class="center"><div class="result">⏰</div><div class="big">Time's up!</div><p class="muted">Wait for the answer…</p></div>`; return;
+    P.innerHTML = `<div class="center"><div class="ico">⏱</div><div class="big">Time's up!</div><p class="muted">Wait for the answer…</p></div>`; return;
   }
   const opts = (q.opts||[]);
   P.innerHTML = `<div class="qwrap">
@@ -206,7 +211,7 @@ function renderQuestion(){
     <div class="tbar"><i id="tbar"></i></div>
     <div class="qtext card" style="padding:16px">${q.q||''}</div>
     ${q.type==='mcq'
-      ? `<div class="opts">${opts.map((o,k)=>`<button class="opt" data-k="${k}" style="background:${OPT[k%6].c}"><span class="sym">${OPT[k%6].s}</span><span class="otext">${o}</span></button>`).join('')}</div>`
+      ? `<div class="opts">${opts.map((o,k)=>`<button class="opt" data-k="${k}" style="--oc:${OPT[k%6].c}"><span class="sym">${OPT[k%6].l}</span><span class="otext">${o}</span></button>`).join('')}</div>`
       : `<div class="numbox"><input id="numIn" inputmode="decimal" autocomplete="off" maxlength="12" placeholder="Your answer"><button class="btn grn" id="numGo">Submit</button></div>
          <div class="err" id="numErr"></div>`}
   </div>`;
@@ -216,11 +221,11 @@ function renderQuestion(){
     const go=()=>{ const v=$('numIn').value.trim(); if(!/^-?\d+(\.\d+)?$/.test(v)){ $('numErr').textContent='Enter a number like 12, -3 or 2.5'; return; } send(qi, v, $('numGo')); };
     $('numGo').onclick=go; $('numIn').addEventListener('keydown',e=>{ if(e.key==='Enter') go(); }); setTimeout(()=>$('numIn').focus(),80);
   }
-  const tot = en-st;
-  const tick=()=>{ const left=Math.max(0,en-serverNow());
-    if($('tbar')) $('tbar').style.width=(100*left/tot)+'%';
-    if($('tleft')) $('tleft').textContent='⏱ '+Math.ceil(left/1000)+' s';
-    if(left<=0 && serverNow()>en+1500){ clearInterval(TICK); renderQuestion(); } };
+  QUI = qi; QEND = en;
+  const tick=()=>{ const left=Math.max(0,QEND-serverNow()), tot=Math.max(QEND-st,1);
+    if($('tbar')) $('tbar').style.width=Math.min(100,100*left/tot)+'%';
+    if($('tleft')) $('tleft').textContent=Math.ceil(left/1000)+' s left';
+    if(left<=0 && serverNow()>QEND+1500){ clearInterval(TICK); QUI=null; renderQuestion(); } };
   tick(); TICK=setInterval(tick, 200);
 }
 function ansText(q, a){ return q && q.type==='mcq' ? (OPT[Number(a)%6]||{}).l || a : a; }
@@ -229,9 +234,10 @@ let SENDING=false;
 async function send(qi, ans, btn){
   if(SENDING || ANSWERED[qi]!==undefined) return; SENDING=true;
   document.querySelectorAll('#play .opt,#play button').forEach(b=>b.disabled=true);
-  if(btn && btn.classList.contains('opt')) document.querySelectorAll('#play .opt').forEach(b=>b.classList.toggle('dim', b!==btn));
+  if(btn && btn.classList.contains('opt')) document.querySelectorAll('#play .opt').forEach(b=>{ b.classList.toggle('picked', b===btn); b.classList.toggle('dim', b!==btn); });
   try{
     const r = await rpc('live_submit', { p_session: ID, p_index: qi, p_answer: String(ans) });
+    QUI = null;
     if(r==='ok' || r==='dup'){ ANSWERED[qi]=String(ans); if(navigator.vibrate) navigator.vibrate(40); }
     else if(r==='late'){ ANSWERED[qi]='—'; }
     else if(r==='not_joined'){ await rpc('live_join', { p_code: CODE, p_name: nameOf(USER) }); SENDING=false; return send(qi, ans, btn); }
@@ -246,15 +252,15 @@ function renderReveal(){
   const P=$('play'), rv=ROW.reveal||{}, q=ROW.q_public||{}, last=ME && ME.last && ME.last.q===ROW.q_index ? ME.last : null;
   const correctTxt = rv.type==='mcq' ? (OPT[Number(rv.ans)%6]||{}).l : rv.ans;
   let icon, title, cls;
-  if(!last){ icon='😶'; title='No answer'; cls='bg-bad'; }
-  else if(last.correct){ icon='✅'; title='Correct!'; cls='bg-ok'; }
-  else { icon='❌'; title='Not this time'; cls='bg-bad'; }
+  if(!last){ icon='<div class="ico">–</div>'; title='No answer'; cls=''; }
+  else if(last.correct){ icon='<div class="ico ok">✓</div>'; title='Correct!'; cls='bg-ok'; }
+  else { icon='<div class="ico bad">✕</div>'; title='Not this time'; cls='bg-bad'; }
   P.className=cls;
-  const streak = ME && ME.streak>=2 ? `<div class="fire" style="font-size:20px;margin-top:6px">🔥 ${ME.streak} in a row!</div>` : '';
+  const streak = ME && ME.streak>=2 ? `<div class="fire" style="font-size:18px;margin-top:6px">${ME.streak} correct in a row — streak bonus!</div>` : '';
   const pts = last ? `<div class="pts">${last.points>0?'+':''}${nf(last.points)}</div>` : '<div class="pts">+0</div>';
   const optHtml = rv.type==='mcq' && q.opts && q.opts[Number(rv.ans)] ? `<div class="ans-show"><span class="muted">Correct answer</span><div style="font-weight:800;font-size:20px;margin-top:4px">(${correctTxt}) <span class="otext">${q.opts[Number(rv.ans)]}</span></div></div>`
                  : `<div class="ans-show"><span class="muted">Correct answer</span><div style="font-weight:800;font-size:24px;margin-top:4px">${esc(correctTxt)}</div></div>`;
-  P.innerHTML = `<div class="center"><div class="stu"><div class="result">${icon}</div><div class="big">${title}</div>${pts}${streak}
+  P.innerHTML = `<div class="center"><div class="stu">${icon}<div class="big">${title}</div>${pts}${streak}
     ${last && !last.correct ? `<p class="muted">You answered <b style="color:var(--ink)">${esc(ansText(rv, last.answer))}</b></p>`:''}
     ${optHtml}
     ${ME && ME.rank ? `<p style="font-size:20px;margin-top:18px">You are <b style="color:var(--cyan)">${ord(ME.rank)}</b> of ${ME.players}</p>`:''}
@@ -278,13 +284,16 @@ function renderBoard(){
 }
 function renderEnd(){
   const P=$('play'); clearInterval(POLL); LS.del('live_join');
-  const r = ME && ME.rank, medal = r===1?'🥇':r===2?'🥈':r===3?'🥉':'🎉';
-  P.innerHTML = `<div class="center"><div class="stu"><div class="result float">${medal}</div>
+  const r = ME && ME.rank, played = Math.max(0, ROW.q_index+1);
+  P.innerHTML = `<div class="center"><div class="stu"><div class="ico ${r&&r<=3?'gold':'wait'}">${r||'✓'}</div>
     <div class="big">Quiz over!</div>
     ${r ? `<p style="font-size:22px">You finished <b style="color:var(--cyan)">${ord(r)}</b> of ${ME.players}</p>
-           <div class="pts">${nf(ME.score)} pts</div><p class="muted">${ME.correct} correct out of ${ROW.q_total}</p>` : ''}
-    <button class="btn" style="margin-top:20px" onclick="location.href='live.html'">Join another quiz</button>
-    <p><a href="./">Back to Test Portal</a></p></div></div>`;
+           <div class="pts">${nf(ME.score)} pts</div><p class="muted">${ME.correct} correct out of ${played}</p>` : ''}
+    <div class="card" style="margin-top:18px;text-align:left;padding:16px">
+      <b>Full analysis &amp; solutions</b>
+      <p class="muted" style="margin:6px 0 12px;font-size:14px">This quiz is saved in <b style="color:var(--ink)">My Results</b> on the Test Portal — question-wise report, your answers, time taken and detailed solutions.</p>
+      <a class="btn" style="display:inline-block;text-decoration:none" href="./#results">Open My Results →</a></div>
+    <p style="margin-top:16px"><button class="linkbtn" onclick="location.href='live.html'">Join another quiz</button></p></div></div>`;
   if(r && r<=3) confetti();
 }
 

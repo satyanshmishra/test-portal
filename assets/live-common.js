@@ -96,8 +96,8 @@
   }
 
   const OPT = [
-    { l: 'A', s: '▲', c: 'var(--oA)' }, { l: 'B', s: '◆', c: 'var(--oB)' }, { l: 'C', s: '●', c: 'var(--oC)' },
-    { l: 'D', s: '■', c: 'var(--oD)' }, { l: 'E', s: '★', c: 'var(--oE)' }, { l: 'F', s: '⬟', c: 'var(--oF)' }
+    { l: 'A', c: 'var(--oA)' }, { l: 'B', c: 'var(--oB)' }, { l: 'C', c: 'var(--oC)' },
+    { l: 'D', c: 'var(--oD)' }, { l: 'E', c: 'var(--oE)' }, { l: 'F', c: 'var(--oF)' }
   ];
   const nf = n => Number(n || 0).toLocaleString('en-IN');
   const ord = n => { n = Number(n); const s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); };

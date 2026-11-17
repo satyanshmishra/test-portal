@@ -44,8 +44,17 @@ create table if not exists public.live_keys (
   type       text not null default 'mcq',
   ans        text not null,
   tol        numeric,
+  q          text,          -- question / options / solution: shown to students only in their
+  opts       jsonb,         -- Results section after the quiz has ended
+  sol        text,
+  dur        int,
   primary key (session_id, q_index)
 );
+-- for databases where the first version was already run
+alter table public.live_keys add column if not exists q    text;
+alter table public.live_keys add column if not exists opts jsonb;
+alter table public.live_keys add column if not exists sol  text;
+alter table public.live_keys add column if not exists dur  int;
 
 create table if not exists public.live_players (
   session_id uuid not null references public.live_sessions(id) on delete cascade,
@@ -111,7 +120,7 @@ begin
 end $$;
 
 -- ---------- host: create a quiz ----------
--- p_keys: [{"type":"mcq","ans":"2"}, {"type":"num","ans":"3.5","tol":0.01}, ...]  (one per question, in order)
+-- p_keys: [{"type":"mcq","ans":"2","q":"...","opts":[...],"sol":"...","dur":30}, {"type":"num","ans":"3.5","tol":0.01,...}]  (in order)
 -- p_settings: {"neg":true,"negPts":250,"streak":true}
 create or replace function public.live_create(p_title text, p_keys jsonb, p_settings jsonb default '{}'::jsonb)
 returns jsonb language plpgsql security definer set search_path = public as $$
@@ -136,8 +145,9 @@ begin
   returning id into v_id;
 
   for k in select value from jsonb_array_elements(p_keys) loop
-    insert into live_keys(session_id, q_index, type, ans, tol)
-    values (v_id, i, coalesce(k ->> 'type', 'mcq'), coalesce(k ->> 'ans', ''), nullif(k ->> 'tol', '')::numeric);
+    insert into live_keys(session_id, q_index, type, ans, tol, q, opts, sol, dur)
+    values (v_id, i, coalesce(k ->> 'type', 'mcq'), coalesce(k ->> 'ans', ''), nullif(k ->> 'tol', '')::numeric,
+            k ->> 'q', case when jsonb_typeof(k -> 'opts') = 'array' then k -> 'opts' end, k ->> 'sol', nullif(k ->> 'dur', '')::int);
     i := i + 1;
   end loop;
 
@@ -348,3 +358,53 @@ grant execute on function public.live_create(text, jsonb, jsonb), public.live_sh
                           public.live_stage(uuid, text), public.live_host_stats(uuid), public.live_me(uuid),
                           public.live_results(uuid), public.live_now(), public.live_is_admin()
   to authenticated;
+
+-- ---------- host: add or cut time while a question is open ----------
+create or replace function public.live_extend(p_session uuid, p_secs int)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare s live_sessions; e timestamptz;
+begin
+  s := live_host_(p_session);
+  if s.status <> 'question' then raise exception 'No question is running'; end if;
+  e := greatest(s.ends_at + make_interval(secs => greatest(-600, least(coalesce(p_secs, 0), 600))),
+                greatest(now(), s.starts_at) + interval '3 seconds');
+  update live_sessions set ends_at = e, v = v + 1, updated_at = now() where id = p_session;
+  return jsonb_build_object('starts_at', s.starts_at, 'ends_at', e, 'now', now());
+end $$;
+
+-- ---------- student: my finished live quizzes (for the Results section) ----------
+create or replace function public.live_my_history()
+returns jsonb language sql stable security definer set search_path = public as $$
+  select coalesce(jsonb_agg(jsonb_build_object(
+           'id', s.id, 'title', s.title, 'at', s.created_at,
+           'questions', least(s.q_index + 1, s.q_total), 'score', p.score, 'rank', p.rank,
+           'correct', p.correct, 'answered', p.answered,
+           'players', (select count(*) from live_players x where x.session_id = s.id))
+         order by s.created_at desc), '[]'::jsonb)
+    from live_players p join live_sessions s on s.id = p.session_id
+   where p.user_id = auth.uid() and s.q_index >= 0
+     and (s.status = 'ended' or s.updated_at < now() - interval '6 hours');
+$$;
+
+-- ---------- student: full review of one finished live quiz ----------
+create or replace function public.live_my_review(p_session uuid)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare s live_sessions; p live_players; qs jsonb; an jsonb;
+begin
+  select * into s from live_sessions where id = p_session;
+  if not found then raise exception 'Quiz not found'; end if;
+  if not (s.status = 'ended' or s.updated_at < now() - interval '6 hours') then raise exception 'This quiz is still running'; end if;
+  select * into p from live_players where session_id = p_session and user_id = auth.uid();
+  if not found and not live_is_admin() then raise exception 'You did not play this quiz'; end if;
+  select coalesce(jsonb_agg(jsonb_build_object('type', type, 'q', q, 'opts', opts, 'ans', ans, 'tol', tol, 'sol', sol, 'dur', dur)
+                  order by q_index), '[]'::jsonb) into qs
+    from live_keys where session_id = p_session and q_index <= s.q_index;
+  select coalesce(jsonb_object_agg(q_index::text, jsonb_build_object('a', answer, 'c', correct, 'p', points, 'ms', ms)), '{}'::jsonb) into an
+    from live_answers where session_id = p_session and user_id = auth.uid();
+  return jsonb_build_object('id', s.id, 'title', s.title, 'at', s.created_at, 'settings', s.settings, 'questions', qs, 'answers', an,
+                            'score', p.score, 'rank', p.rank, 'correct', p.correct,
+                            'players', (select count(*) from live_players where session_id = p_session));
+end $$;
+
+revoke execute on function public.live_extend(uuid, int), public.live_my_history(), public.live_my_review(uuid) from public, anon;
+grant execute on function public.live_extend(uuid, int), public.live_my_history(), public.live_my_review(uuid) to authenticated;

@@ -572,6 +572,8 @@ async function afterLogin(){
   }
   VIEW={level:'home'};
   await loadPapers();
+  loadLiveHist();
+  if(location.hash==='#results'){ history.replaceState(null,'',location.pathname); go({level:'results'}); }
 }
 
 /* =====================================================================
@@ -643,7 +645,7 @@ function renderPapers(){
   if(VIEW.level==='home'){
     crumbs([]); $('listTitle').textContent='Your Test Papers';
     $('listSub').textContent='Choose a folder. Each paper can be attempted once. You can see your result and solutions anytime from My Results.';
-    const nRes=Object.keys(ATTEMPTS).length;
+    const nRes=Object.keys(ATTEMPTS).length+(LIVE_HIST?LIVE_HIST.length:0);
     grid.innerHTML = FOLDERS.filter(f=>!f.hidden).map(f=>{
       const list=papersIn(f.id);
       return f.practice
@@ -719,9 +721,16 @@ function renderResults(){
     const p=PAPERS.find(x=>x.id===id)||{};
     return {id, name:showName(p.name||a.paperName||'Test paper'), p, a};
   }).sort((x,y)=>String(y.a.time||'').localeCompare(String(x.a.time||'')));
-  $('listSub').textContent = list.length ? 'Open any test to see your full report, question-wise analysis and detailed solutions.' : '';
-  if(!list.length){ $('paperGrid').innerHTML='<div class="card empty" style="grid-column:1/-1">You have not given any test yet. Open a folder and start a paper.</div>'; return; }
-  $('paperGrid').innerHTML = list.map(r=>{
+  const live=LIVE_HIST||[];
+  $('listSub').textContent = (list.length||live.length) ? 'Open any test or live quiz to see your full report, question-wise analysis and detailed solutions.' : '';
+  if(!list.length && !live.length){ $('paperGrid').innerHTML='<div class="card empty" style="grid-column:1/-1">You have not given any test yet. Open a folder and start a paper.</div>'; return; }
+  $('paperGrid').innerHTML = live.map(r=>`<div class="card paper-card">
+      <div class="pnum">Live Quiz</div>
+      <h3>${esc(r.title)}</h3>
+      <div class="meta">${r.rank?`<span>Rank ${esc(r.rank)} of ${esc(r.players)}</span>`:''}<span>${esc(r.score)} points</span>
+        <span>${esc(r.correct)}/${esc(r.questions)} correct</span><span>${esc(fmtWhen(r.at))}</span></div>
+      <div class="foot"><button class="btn small ghost" type="button" data-lview="${esc(r.id)}">View Result</button>
+        <button class="btn small" type="button" data-lsol="${esc(r.id)}">📘 View Solutions</button></div></div>`).join('') + list.map(r=>{
     const f=folderOf(r.p.category); const pct = r.a.maxMarks ? Math.round(Number(r.a.score)/Number(r.a.maxMarks)*100) : null;
     return `<div class="card paper-card">
       <div class="pnum">${esc(f?f.title:'Test')}</div>
@@ -737,7 +746,49 @@ document.querySelector('#papers').addEventListener('click', e=>{
   const o=e.target.closest('[data-open]'); if(o) openPaper(o.dataset.open);
   const v=e.target.closest('[data-view]'); if(v) viewResult(v.dataset.view);
   const s=e.target.closest('[data-sol]'); if(s) viewResult(s.dataset.sol, true);
+  const lv=e.target.closest('[data-lview]'); if(lv) viewLive(lv.dataset.lview);
+  const ls=e.target.closest('[data-lsol]'); if(ls) viewLive(ls.dataset.lsol, true);
 });
+
+/* ---------- live quizzes played on live.html (stored in Supabase) ---------- */
+let LIVE_HIST = null;
+window.addEventListener('hashchange', ()=>{ if(location.hash==='#results' && USER){ history.replaceState(null,'',location.pathname); go({level:'results'}); } });
+async function loadLiveHist(){
+  if(!SB) return;
+  try{
+    const { data, error } = await SB.rpc('live_my_history');
+    if(error) return;                                   // live quiz not set up yet → simply no live results
+    LIVE_HIST = Array.isArray(data) ? data : [];
+    if($('papers').classList.contains('active') && (VIEW.level==='home' || VIEW.level==='results')) renderPapers();
+  }catch(e){}
+}
+async function viewLive(id, solutions){
+  busy(true,'Loading your live quiz…');
+  try{
+    const { data:d, error } = await SB.rpc('live_my_review', { p_session:id });
+    if(error) throw new Error(error.message);
+    const qs = d.questions||[], neg = !!(d.settings && d.settings.neg);
+    const total = qs.reduce((t,q)=>t+(Number(q.dur)||30),0);
+    usePaper({ id:'live:'+id,
+      settings:{ paperName:d.title, exam:'Live Quiz', durationMin: Math.max(1, Math.round(total/60)) },
+      sections:[{ id:'L', title:'Live Quiz', type:'mcq', correct:4, wrong: neg?-1:0 }],
+      questions: qs.map(q=>({ section:'L', type:q.type==='mcq'?'mcq':'num', q:q.q||'', opts:q.opts||[],
+                              ans:q.type==='mcq'?Number(q.ans):q.ans, tol:q.tol, sol:q.sol||'' })) });
+    S=freshState();
+    qs.forEach((q,i)=>{ const a=(d.answers||{})[String(i)];
+      if(a){ S.ans[i] = Q[i].type==='mcq' ? Number(a.a) : a.a; S.time[i]=Number(a.ms)||0; S.visited[i]=true; } });
+    S.submitted=true; S.start=new Date(d.at).getTime(); S.submitAt=S.start+total*1000;
+    evaluate(); VIEW_ONLY=true; VIEW={level:'results'};
+    renderReport();
+    const top=$('reportWrap').querySelector('.rep-top');
+    if(top) top.insertAdjacentHTML('afterend', `<div class="card" style="margin:14px 0;display:flex;flex-wrap:wrap;gap:18px;align-items:center;justify-content:space-around;text-align:center">
+      <div><div style="font-size:28px;font-weight:800">${d.rank?esc(d.rank):'—'}<span style="font-size:16px;color:var(--muted)"> / ${esc(d.players)}</span></div><div style="color:var(--muted);font-size:13px">Rank in the live quiz</div></div>
+      <div><div style="font-size:28px;font-weight:800">${esc(d.score||0)}</div><div style="color:var(--muted);font-size:13px">Live points (speed + accuracy)</div></div>
+      <div style="max-width:420px;color:var(--muted);font-size:13px;text-align:left">Marks below use +4 for correct${neg?', −1 for wrong':''}. "Time spent" is how fast you answered each question in the live quiz.</div></div>`);
+    busy(false); show('result');
+    if(solutions){ S.solCur=0; openSolutions(); }
+  }catch(e){ busy(false); toast('Could not load this live quiz: '+(e.message||'please try again')); }
+}
 async function fetchPaper(id){
   if(PAPER_CACHE[id]) return PAPER_CACHE[id];
   const r = await api('paper',{id}); PAPER_CACHE[id]=r.paper; return r.paper;

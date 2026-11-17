@@ -46,7 +46,7 @@ window.MathJax = {
 .qcard{flex:1;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px 24px;min-height:120px}
 .stat{display:flex;flex-direction:column;align-items:center;min-width:110px}
 .stat b{font-size:40px;font-weight:900;color:var(--cyan);line-height:1}
-.stat span{color:var(--muted);font-weight:700;font-size:13px}
+.stat > span{color:var(--muted);font-weight:700;font-size:13px}
 .distrow{display:flex;align-items:center;gap:12px;margin:8px 0}
 .distrow .lab{width:54px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:20px;color:#fff}
 .distrow .bar{flex:1;height:44px;border-radius:10px;background:var(--card2);overflow:hidden;position:relative}
@@ -65,6 +65,7 @@ window.MathJax = {
   <div class="tools">
     <span class="pill" id="tbCode" style="display:none"></span>
     <span class="pill" id="tbPlayers" style="display:none"></span>
+    <button class="btn pink sm" id="endBtn" style="display:none">End quiz</button>
     <button class="btn ghost sm" id="sndBtn" title="Sound on/off">🔊</button>
     <button class="btn ghost sm" id="fsBtn" title="Full screen (F)">⛶</button>
   </div>
@@ -147,7 +148,8 @@ window.MathJax = {
     <div style="text-align:center;margin-top:20px">
       <span class="pill" style="font-size:18px;padding:8px 18px">👥 <b id="lobbyCount" style="color:var(--ink)">0</b>&nbsp;joined</span>
       <div class="names" id="names"></div>
-      <div style="margin-top:24px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+      <div style="margin-top:18px" id="lobbyTime"></div>
+      <div style="margin-top:18px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
         <button class="btn big grn" id="startBtn">Start quiz ▶</button>
         <button class="btn ghost" id="cancelBtn">End & start over</button>
       </div>
@@ -167,7 +169,8 @@ window.MathJax = {
   <div class="wrap" style="flex:1;display:flex;flex-direction:column">
     <div style="text-align:center;margin-bottom:16px"><div class="brand" style="font-size:16px">Leaderboard</div><h1 id="boardTitle">After question 1</h1></div>
     <div class="board" id="board"></div>
-    <div class="foot" style="justify-content:center;margin-top:24px"><button class="btn big yel" id="nextBtn">Next question →</button></div>
+    <div style="text-align:center;margin-top:22px" id="boardTime"></div>
+    <div class="foot" style="justify-content:center;margin-top:16px"><button class="btn big yel" id="nextBtn">Next question →</button></div>
   </div>
 </section>
 
@@ -195,6 +198,7 @@ let H = null;          // host state: {id, code, title, qs:[...], settings, idx}
 let PAPER = null, PICK = [];
 let STATS = { players:0, answered:0, names:[] }, STATS_T = null, QTIMER = null, REVEALING = false, RESULTS = null;
 let PRIMARY = null;    // what Space / Enter / → does on the current screen
+let QWAIT = null;
 
 function show(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('on', s.id===id)); window.scrollTo(0,0); }
 function msg(el, text, kind){ $(el).innerHTML = text ? `<div class="msg ${kind||'bad'}">${esc(text)}</div>` : ''; }
@@ -318,7 +322,7 @@ $('createBtn').onclick = async ()=>{
   const title = $('title').value.trim() || 'Live Quiz';
   $('createBtn').disabled=true;
   try{
-    const r = await rpc('live_create', { p_title:title, p_keys: qs.map(q=>({type:q.type, ans:q.ans, tol:q.tol})), p_settings:settings });
+    const r = await rpc('live_create', { p_title:title, p_keys: qs.map(q=>({type:q.type, ans:q.ans, tol:q.tol, q:q.q, opts:q.opts, sol:q.sol, dur:q.dur})), p_settings:settings });
     H = { id:r.id, code:r.code, title, qs, settings, idx:-1, lead:Math.max(0,Math.min(10,+$('tLead').value||0)), auto:$('optAuto').checked };
     save(); openLobby();
   }catch(e){ msg('createMsg', e.message); }
@@ -331,7 +335,7 @@ function openLobby(){
   $('codeBig').textContent = H.code.slice(0,3)+' '+H.code.slice(3);
   $('joinUrl2').textContent = JOIN_SHORT;
   try{ const qr = qrcode(0,'M'); qr.addData(JOIN_URL+'?code='+H.code); qr.make(); $('qrBox').innerHTML = qr.createImgTag(8, 8); }catch(e){ $('qrBox').textContent=''; }
-  STATS.names = []; $('names').innerHTML=''; startStats(1500);
+  STATS.names = []; $('names').innerHTML=''; startStats(1500); timeCtl('lobbyTime', 0);
   PRIMARY = ()=>$('startBtn').click();
 }
 function drawNames(list){
@@ -355,10 +359,10 @@ function onStats(){
 
 /* ================= QUESTION ================= */
 function optHtml(q, cls){
-  return `<div class="opts" style="margin-top:16px">${(q.opts||[]).map((o,k)=>`<div class="opt ${cls?cls(k):''}" style="background:${OPT[k%6].c}"><span class="sym">${OPT[k%6].s}</span><span class="otext">${o}</span>${cls&&cls(k)==='right'?'<span class="tick">✔</span>':''}</div>`).join('')}</div>`;
+  return `<div class="opts" style="margin-top:16px">${(q.opts||[]).map((o,k)=>`<div class="opt ${cls?cls(k):''}" style="--oc:${OPT[k%6].c}"><span class="sym">${OPT[k%6].l}</span><span class="otext">${o}</span>${cls&&cls(k)==='right'?'<span class="tick">✔ Correct</span>':''}</div>`).join('')}</div>`;
 }
 async function showQuestion(i, resumeTimes){
-  H.idx=i; save(); REVEALING=false; clearInterval(QTIMER); QTIMER=null; PRIMARY=null;
+  H.idx=i; save(); REVEALING=false; clearInterval(QTIMER); QTIMER=null; clearTimeout(QWAIT); QWAIT=null; PRIMARY=null;
   const q=H.qs[i], st=$('qStage'); show('sQ');
   let times = resumeTimes;
   if(!times){
@@ -366,7 +370,7 @@ async function showQuestion(i, resumeTimes){
     catch(e){ st.innerHTML=`<div class="center"><div class="msg bad">${esc(e.message)}</div><button class="btn" onclick="showQuestion(${i})">Try again</button></div>`; return; }
     setOffsetFrom(times.now);
   }
-  const S0=new Date(times.starts_at).getTime(), E0=new Date(times.ends_at).getTime();
+  const S0=new Date(times.starts_at).getTime(); let E0=new Date(times.ends_at).getTime();
   startStats(1000);
   // get ready
   let lastShown=null;
@@ -383,16 +387,22 @@ async function showQuestion(i, resumeTimes){
         <div class="qcard"><div class="muted" style="font-weight:800;margin-bottom:6px">Question ${i+1} of ${H.qs.length}</div><div class="qtext">${q.q}</div></div>
         <div class="stat"><b><span id="aCount">${STATS.answered||0}</span></b><span>answers of <span id="pCount">${STATS.players}</span></span></div>
       </div>
-      ${q.type==='mcq' ? optHtml(q) : `<div class="center" style="flex:0;padding:30px"><span class="pill" style="font-size:20px;padding:12px 22px">🔢 Type your answer on your phone</span></div>`}
-      <div class="foot"><span class="muted">Space / → = stop & reveal</span><button class="btn pink" id="stopBtn">Stop & reveal answer</button></div>`;
+      ${q.type==='mcq' ? optHtml(q) : `<div class="center" style="flex:0;padding:30px"><span class="pill" style="font-size:20px;padding:12px 22px">Numerical answer — type it on your phone</span></div>`}
+      <div class="foot"><span class="timectl"><span class="muted">Time:</span>
+          <button class="chipbtn" data-ext="-10">−10 s</button><button class="chipbtn" data-ext="10">+10 s</button><button class="chipbtn" data-ext="30">+30 s</button><button class="chipbtn" data-ext="60">+1 min</button></span>
+        <button class="btn pink" id="stopBtn">Stop & reveal answer</button></div>`;
     typeset(st);
     $('stopBtn').onclick = reveal; PRIMARY = reveal;
+    st.querySelectorAll('[data-ext]').forEach(b=>b.onclick=async()=>{
+      b.disabled=true;
+      try{ const t=await rpc('live_extend',{p_session:H.id,p_secs:+b.dataset.ext}); setOffsetFrom(t.now); E0=new Date(t.ends_at).getTime(); }catch(e){ alert(e.message); }
+      b.disabled=false; });
     let lastSec=null;
-    const tick=()=>{ const left=Math.max(0,E0-serverNow()), sec=Math.ceil(left/1000), tot=E0-S0;
+    const tick=()=>{ const left=Math.max(0,E0-serverNow()), sec=Math.ceil(left/1000), tot=Math.max(E0-S0,1);
       if($('ringT')){ $('ringT').textContent=sec; $('ringC').setAttribute('stroke-dashoffset', 301.6*(1-left/tot)); $('ring').classList.toggle('low', sec<=5);
         $('ringC').setAttribute('stroke', sec<=5?'#ff5c8a':sec<=10?'#ffd54a':'#35e0ff'); }
       if(sec!==lastSec){ lastSec=sec; if(sec<=5 && sec>0) SFX.tick(); }
-      if(left<=0){ clearInterval(QTIMER); setTimeout(reveal, 1200); }   // small grace for slow phones
+      if(left<=0 && !QWAIT){ QWAIT=setTimeout(()=>{ QWAIT=null; if(E0-serverNow()<=0) reveal(); }, 1200); }   // small grace for slow phones
     };
     tick(); QTIMER=setInterval(tick, 200);
   };
@@ -401,7 +411,7 @@ async function showQuestion(i, resumeTimes){
 
 /* ================= REVEAL ================= */
 async function reveal(){
-  if(REVEALING) return; REVEALING=true; clearInterval(QTIMER); QTIMER=null; PRIMARY=null;
+  if(REVEALING) return; REVEALING=true; clearInterval(QTIMER); QTIMER=null; clearTimeout(QWAIT); QWAIT=null; PRIMARY=null;
   const i=H.idx, q=H.qs[i], st=$('qStage');
   let r;
   try{ r = await rpc('live_reveal', { p_session:H.id }); }
@@ -429,13 +439,13 @@ async function reveal(){
       <div class="stat"><b style="color:var(--grn)">${pct}%</b><span>correct</span></div>
       <div class="stat"><b>${rv.answered||0}</b><span>answered of ${rv.players||0}</span></div></div>
     ${body}
-    ${rv.fastest ? `<div style="text-align:center;margin-top:14px;font-size:20px">⚡ Fastest correct: <b style="color:var(--yel)">${esc(rv.fastest.name)}</b> <span class="muted">(${(rv.fastest.ms/1000).toFixed(1)} s)</span></div>`:''}
+    ${rv.fastest ? `<div style="text-align:center;margin-top:14px;font-size:20px">Fastest correct answer: <b style="color:var(--yel)">${esc(rv.fastest.name)}</b> <span class="muted">(${(rv.fastest.ms/1000).toFixed(1)} s)</span></div>`:''}
     <div class="sol" id="solBox"><b>Solution</b><div class="qtext" style="font-size:20px;margin-top:8px">${q.sol||''}</div></div>
-    <div class="foot">${q.sol?'<button class="btn ghost" id="solBtn">📖 Show solution</button>':'<span></span>'}
-      <button class="btn big yel" id="toBoard">${last?'Final results 🏆':'Leaderboard →'}</button></div>`;
+    <div class="foot">${q.sol?'<button class="btn ghost" id="solBtn">Show solution</button>':'<span></span>'}
+      <button class="btn big yel" id="toBoard">${last?'Final results':'Leaderboard →'}</button></div>`;
   typeset(st);
   requestAnimationFrame(()=>setTimeout(()=>st.querySelectorAll('.bar i').forEach(b=>b.style.width=b.dataset.w+'%'),60));
-  if($('solBtn')) $('solBtn').onclick=()=>{ $('solBox').classList.toggle('on'); $('solBtn').textContent=$('solBox').classList.contains('on')?'Hide solution':'📖 Show solution'; };
+  if($('solBtn')) $('solBtn').onclick=()=>{ $('solBox').classList.toggle('on'); $('solBtn').textContent=$('solBox').classList.contains('on')?'Hide solution':'Show solution'; };
   $('toBoard').onclick = last ? finish : showBoard; PRIMARY = $('toBoard').onclick;
 }
 
@@ -449,36 +459,43 @@ async function showBoard(){
   const prevOrder = rows.slice().sort((a,b)=>(a.prev||999)-(b.prev||999));
   box.innerHTML = rows.map(r=>{ const d=r.prev?r.prev-r.rank:0;
     return `<div class="brow g${r.rank}" data-rank="${r.rank}" style="top:${prevOrder.indexOf(r)*RH}px">
-      <span class="rk">${r.rank}</span><span class="bn">${esc(r.name)} ${r.streak>=2?`<span class="fire">🔥${r.streak}</span>`:''}</span>
+      <span class="rk">${r.rank}</span><span class="bn">${esc(r.name)} ${r.streak>=2?`<span class="fire">${r.streak} in a row</span>`:''}</span>
       <span class="sc">${nf(r.score)}</span><span class="mv ${d>0?'up':d<0?'down':''}">${d>0?'▲'+d:d<0?'▼'+(-d):''}</span></div>`; }).join('') ||
     '<p class="muted" style="text-align:center">No players yet.</p>';
   setTimeout(()=>{ box.querySelectorAll('.brow').forEach(el=>{ el.style.top=((+el.dataset.rank-1)*RH)+'px'; }); }, 700);
   // ties share a rank number; keep rows from overlapping
   setTimeout(()=>{ [...box.querySelectorAll('.brow')].sort((a,b)=>+a.dataset.rank-+b.dataset.rank).forEach((el,k)=>el.style.top=(k*RH)+'px'); }, 720);
   const last = H.idx>=H.qs.length-1;
-  $('nextBtn').textContent = last ? 'Final results 🏆' : 'Next question →';
+  $('nextBtn').textContent = last ? 'Final results' : 'Next question →';
+  if(!last) timeCtl('boardTime', H.idx+1); else $('boardTime').innerHTML='';
   $('nextBtn').onclick = last ? finish : ()=>showQuestion(H.idx+1);
   PRIMARY = $('nextBtn').onclick;
 }
 
 /* ================= FINAL ================= */
+let PLAYED = 0;
 async function finish(){
-  PRIMARY=null; stopStats();
+  PRIMARY=null; stopStats(); clearInterval(QTIMER); QTIMER=null; clearTimeout(QWAIT); QWAIT=null;
+  try{
+    const { data } = await SB.from('live_sessions').select('status,q_index').eq('id', H.id).maybeSingle();
+    if(data && data.status==='question'){ REVEALING=true; await rpc('live_reveal', { p_session:H.id }); }
+    PLAYED = data ? data.q_index+1 : H.idx+1;
+  }catch(e){ PLAYED = H.idx+1; }
   try{ await rpc('live_stage', { p_session:H.id, p_status:'ended' }); }catch(e){}
   show('sFinal'); $('finalTitle').textContent = H.title;
   try{ RESULTS = await rpc('live_results', { p_session:H.id }); }catch(e){ RESULTS={players:[]}; }
   const P = RESULTS.players||[];
-  const pod = (p,c)=> p ? `<div class="pod ${c}"><div class="who">${esc(p.name)}<div class="pts">${nf(p.score)} pts</div></div><div class="bar">${c==='p1'?'🥇':c==='p2'?'🥈':'🥉'}</div></div>` : `<div class="pod ${c}"></div>`;
+  const pod = (p,c)=> p ? `<div class="pod ${c}"><div class="who">${esc(p.name)}<div class="pts">${nf(p.score)} pts</div></div><div class="bar">${c==='p1'?'1':c==='p2'?'2':'3'}</div></div>` : `<div class="pod ${c}"></div>`;
   $('podium').innerHTML = pod(P[1],'p2') + pod(P[0],'p1') + pod(P[2],'p3');
   setTimeout(()=>{ SFX.fanfare(); confetti(4500); }, 2400);
   $('finalTbl').innerHTML = `<thead><tr><th>Rank</th><th class="l">Name</th><th>Score</th><th>Correct</th><th>Answered</th><th>Avg time (correct)</th></tr></thead><tbody>` +
     P.map(p=>`<tr><td><b>${p.rank||'—'}</b></td><td class="l">${esc(p.name)}</td><td style="color:var(--yel);font-weight:800">${nf(p.score)}</td>
-      <td>${p.correct} / ${H.qs.length}</td><td>${p.answered}</td><td>${p.avg_ms!=null?(p.avg_ms/1000).toFixed(1)+' s':'—'}</td></tr>`).join('') + '</tbody>';
+      <td>${p.correct} / ${PLAYED}</td><td>${p.answered}</td><td>${p.avg_ms!=null?(p.avg_ms/1000).toFixed(1)+' s':'—'}</td></tr>`).join('') + '</tbody>';
   LS.del('live_host');
 }
 $('csvBtn').onclick = ()=>{
   if(!RESULTS) return;
-  const n=H?H.qs.length:(RESULTS.q_total||0), cell=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';
+  const n=PLAYED||(RESULTS.q_total||0), cell=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';
   const head=['Rank','Name','Email','Score','Correct','Answered','Avg time correct (s)'];
   for(let i=0;i<n;i++) head.push('Q'+(i+1)+' answer','Q'+(i+1)+' points');
   const lines=[head.map(cell).join(',')];
@@ -493,6 +510,33 @@ $('csvBtn').onclick = ()=>{
   a.download=(RESULTS.title||'live-quiz').replace(/[^\w\- ]+/g,'').trim()+' - results.csv'; a.click();
 };
 $('newBtn').onclick = ()=>{ H=null; RESULTS=null; topbar(); PICK=PAPER?PAPER.map(()=>true):[]; if(PAPER) renderPick(); show('sSetup'); };
+
+
+/* ================= END ANYTIME + TIME CONTROL ================= */
+function endVisible(){ const on = !!H && ['sLobby','sQ','sBoard'].some(id=>$(id).classList.contains('on')); $('endBtn').style.display = on?'':'none'; }
+new MutationObserver(endVisible).observe(document.body, { subtree:true, attributes:true, attributeFilter:['class'] });
+$('endBtn').onclick = async ()=>{
+  if(!H) return;
+  if($('sLobby').classList.contains('on')){ return $('cancelBtn').click(); }
+  if(!confirm('End the quiz now? Students will see their final rank, and the results will be saved.')) return;
+  finish();
+};
+/* time for question idx (lobby → Q1, leaderboard → next question) */
+function timeCtl(boxId, idx){
+  const box=$(boxId); if(!box || !H || !H.qs[idx]) { if(box) box.innerHTML=''; return; }
+  const q=H.qs[idx], presets=[15,30,45,60,90,120,180];
+  const draw=()=>{
+    box.innerHTML = `<div class="timectl"><span class="muted" style="font-weight:700">Time for question ${idx+1} (${q.type==='mcq'?'MCQ':'numerical'}):</span>
+      ${presets.map(p=>`<button class="chipbtn ${q.dur===p?'on':''}" data-p="${p}">${p<60?p+' s':(p/60)+' min'}</button>`).join('')}
+      <input type="number" min="5" max="900" value="${q.dur}" aria-label="seconds"><span class="muted">s</span>
+      <label class="chk" style="margin:0 0 0 6px"><input type="checkbox" ${H.applyAll?'checked':''}> all remaining</label></div>`;
+    box.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>set(+b.dataset.p));
+    box.querySelector('input[type=number]').onchange=e=>set(Math.max(5,Math.min(900,+e.target.value||30)));
+    box.querySelector('input[type=checkbox]').onchange=e=>{ H.applyAll=e.target.checked; if(H.applyAll) set(q.dur); save(); };
+  };
+  const set=v=>{ if(H.applyAll){ for(let k=idx;k<H.qs.length;k++) H.qs[k].dur=v; } else q.dur=v; save(); draw(); };
+  draw();
+}
 
 /* ================= RESUME after refresh ================= */
 async function resume(saved, row){

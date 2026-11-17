@@ -1,8 +1,8 @@
 {
  "exam": "JEE Main",
  "prefix": "M",
- "version": "7df9609b3f",
- "total": 1267,
+ "version": "68c319c4f6",
+ "total": 1598,
  "years": [
   2002,
   2003,
@@ -325,6 +325,114 @@
      "title": "Products and identities of binomial coefficients",
      "n": 18,
      "times": 18
+    }
+   ]
+  },
+  {
+   "id": "7",
+   "title": "Sequences and Series",
+   "file": "07_sequences_and_series.json",
+   "n": 331,
+   "nMrq": 280,
+   "subs": [
+    {
+     "id": "7.1",
+     "title": "Arithmetic Progression",
+     "n": 106
+    },
+    {
+     "id": "7.2",
+     "title": "Geometric Progression",
+     "n": 124
+    },
+    {
+     "id": "7.3",
+     "title": "Harmonic Progression",
+     "n": 4
+    },
+    {
+     "id": "7.4",
+     "title": "Relation between A.M., G.M. and H.M.",
+     "n": 12
+    },
+    {
+     "id": "7.5",
+     "title": "Sum to n Terms of Special Series",
+     "n": 85
+    }
+   ],
+   "mrq": [
+    {
+     "id": "SA",
+     "title": "A.P.: terms and sums",
+     "n": 60,
+     "times": 60
+    },
+    {
+     "id": "SB",
+     "title": "Odd and even placed terms; arithmetic means",
+     "n": 8,
+     "times": 8
+    },
+    {
+     "id": "SC",
+     "title": "Common terms of arithmetic progressions",
+     "n": 10,
+     "times": 10
+    },
+    {
+     "id": "SD",
+     "title": "G.P.: terms and finite sums",
+     "n": 47,
+     "times": 47
+    },
+    {
+     "id": "SE",
+     "title": "Infinite geometric series",
+     "n": 20,
+     "times": 20
+    },
+    {
+     "id": "SF",
+     "title": "A.P. and G.P. together",
+     "n": 24,
+     "times": 24
+    },
+    {
+     "id": "SG",
+     "title": "Arithmetico-geometric series",
+     "n": 18,
+     "times": 18
+    },
+    {
+     "id": "SH",
+     "title": "Telescoping sums (method of differences)",
+     "n": 28,
+     "times": 28
+    },
+    {
+     "id": "SI",
+     "title": "Sums using Σn, Σn² and Σn³",
+     "n": 36,
+     "times": 36
+    },
+    {
+     "id": "SJ",
+     "title": "Series summed using the expansion of eˣ",
+     "n": 8,
+     "times": 8
+    },
+    {
+     "id": "SK",
+     "title": "A.M.–G.M. inequality",
+     "n": 15,
+     "times": 15
+    },
+    {
+     "id": "SL",
+     "title": "Sequences defined by a recurrence",
+     "n": 6,
+     "times": 6
     }
    ]
   },

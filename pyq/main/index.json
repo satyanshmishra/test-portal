@@ -1,8 +1,8 @@
 {
  "exam": "JEE Main",
  "prefix": "M",
- "version": "c34f92a853",
- "total": 348,
+ "version": "c21eeb0e90",
+ "total": 562,
  "years": [
   2002,
   2003,
@@ -114,6 +114,86 @@
      "title": "Regions: intersections, counting points and areas",
      "n": 13,
      "times": 13
+    }
+   ]
+  },
+  {
+   "id": "3",
+   "title": "Quadratic Equations",
+   "file": "03_quadratic_equations.json",
+   "n": 214,
+   "nMrq": 164,
+   "subs": [
+    {
+     "id": "3.1",
+     "title": "Relation Between Roots & Coefficients",
+     "n": 79
+    },
+    {
+     "id": "3.2",
+     "title": "Solution of Quadratic Equations",
+     "n": 91
+    },
+    {
+     "id": "3.3",
+     "title": "Nature of Roots",
+     "n": 44
+    }
+   ],
+   "mrq": [
+    {
+     "id": "QA",
+     "title": "Symmetric functions of roots",
+     "n": 32,
+     "times": 32
+    },
+    {
+     "id": "QB",
+     "title": "Power sums αⁿ ± βⁿ and recurrences",
+     "n": 22,
+     "times": 22
+    },
+    {
+     "id": "QC",
+     "title": "Forming equations with transformed roots",
+     "n": 9,
+     "times": 9
+    },
+    {
+     "id": "QD",
+     "title": "Common roots",
+     "n": 8,
+     "times": 8
+    },
+    {
+     "id": "QE",
+     "title": "Equations reducible to quadratics (modulus, exponential, logarithmic, substitution)",
+     "n": 49,
+     "times": 49
+    },
+    {
+     "id": "QF",
+     "title": "Nature and location of roots; range of a parameter",
+     "n": 26,
+     "times": 26
+    },
+    {
+     "id": "QG",
+     "title": "Quadratics with complex coefficients or roots",
+     "n": 9,
+     "times": 9
+    },
+    {
+     "id": "QH",
+     "title": "Equations involving roots of unity",
+     "n": 5,
+     "times": 5
+    },
+    {
+     "id": "QI",
+     "title": "Integral and rational roots",
+     "n": 4,
+     "times": 4
     }
    ]
   },

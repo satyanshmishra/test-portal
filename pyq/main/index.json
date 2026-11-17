@@ -1,8 +1,8 @@
 {
  "exam": "JEE Main",
  "prefix": "M",
- "version": "4def5f9cec",
- "total": 2267,
+ "version": "53bab4b9eb",
+ "total": 2542,
  "years": [
   2002,
   2003,
@@ -580,6 +580,57 @@
      "title": "Sequences defined by a recurrence",
      "n": 6,
      "times": 6
+    }
+   ]
+  },
+  {
+   "id": "10",
+   "title": "Differential Equations",
+   "file": "10_differential_equations.json",
+   "n": 275,
+   "nMrq": 217,
+   "subs": [
+    {
+     "id": "10.1",
+     "title": "Order, Degree and Formation of Differential Equations",
+     "n": 20
+    },
+    {
+     "id": "10.2",
+     "title": "Solution of Differential Equations",
+     "n": 255
+    }
+   ],
+   "mrq": [
+    {
+     "id": "DA",
+     "title": "Formation, order and degree of differential equations",
+     "n": 18,
+     "times": 18
+    },
+    {
+     "id": "DB",
+     "title": "Variable separable and homogeneous equations",
+     "n": 62,
+     "times": 62
+    },
+    {
+     "id": "DC",
+     "title": "Linear differential equations",
+     "n": 99,
+     "times": 99
+    },
+    {
+     "id": "DD",
+     "title": "Equations reducible to linear form",
+     "n": 19,
+     "times": 19
+    },
+    {
+     "id": "DE",
+     "title": "Integral equations leading to differential equations",
+     "n": 19,
+     "times": 19
     }
    ]
   },

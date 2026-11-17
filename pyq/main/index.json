@@ -1,8 +1,8 @@
 {
  "exam": "JEE Main",
  "prefix": "M",
- "version": "53bab4b9eb",
- "total": 2542,
+ "version": "d92b768657",
+ "total": 2734,
  "years": [
   2002,
   2003,
@@ -631,6 +631,56 @@
      "title": "Integral equations leading to differential equations",
      "n": 19,
      "times": 19
+    }
+   ]
+  },
+  {
+   "id": "12",
+   "title": "Three Dimensional Geometry",
+   "file": "12_three_dimensional_geometry.json",
+   "n": 192,
+   "nMrq": 154,
+   "subs": [
+    {
+     "id": "12.1",
+     "title": "Coordinates, Direction Cosines and Direction Ratios",
+     "n": 12
+    },
+    {
+     "id": "12.2",
+     "title": "Line",
+     "n": 174
+    },
+    {
+     "id": "12.3",
+     "title": "Sphere",
+     "n": 6
+    }
+   ],
+   "mrq": [
+    {
+     "id": "DA",
+     "title": "Image and foot of perpendicular of a point in a line",
+     "n": 38,
+     "times": 38
+    },
+    {
+     "id": "DB",
+     "title": "Shortest distance and intersection of lines",
+     "n": 58,
+     "times": 58
+    },
+    {
+     "id": "DC",
+     "title": "Distance of a point from a line (including along a given line)",
+     "n": 28,
+     "times": 28
+    },
+    {
+     "id": "DD",
+     "title": "Direction cosines, angles and lines perpendicular to given lines",
+     "n": 30,
+     "times": 30
     }
    ]
   },

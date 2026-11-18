@@ -702,6 +702,11 @@ function folderCard(icon, title, desc, n, done, go, empty, unit){
 /* "Group | Title" in a paper's name puts it in a sub-folder (e.g. "Complex Numbers | Test 2") */
 function splitName(n){ const i=String(n||'').indexOf(' | '); return i<0 ? {g:'', t:String(n||'')} : {g:n.slice(0,i).trim(), t:n.slice(i+3).trim()}; }
 const showName = n => { const s=splitName(n); return s.g ? s.g+' · '+s.t : s.t; };
+/* extra folder level inside a folder: sub-folders whose name passes test() are shown inside it,
+   and its card comes first. Topic-wise: the chapter tests named "NN Chapter | Test 1/2/3". */
+const SUPER_FOLDERS = (CFG.SUPER_FOLDERS && CFG.SUPER_FOLDERS.length) ? CFG.SUPER_FOLDERS : [
+  {cat:'topic', name:'Topic-wise Tests Level Up', desc:'Chapter-wise tests: Test 1, 2 and 3 for every chapter', icon:'🚀', test:g=>/^\d{2}[A-Z]?\s/.test(g)}
+];
 const natCmp = (a,b) => a.localeCompare(b, undefined, {numeric:true, sensitivity:'base'});
 function renderPapers(){
   const grid=$('paperGrid');
@@ -732,22 +737,32 @@ function renderPapers(){
       return folderCard(s.icon||'📗', s.name, s.desc||'', list.length, f.practice?sheetsDone(list):doneCount(list), {level:'folder', cat:f.id, subject:s.name}, '', f.practice?'sheet':''); }).join('');
     return;
   }
-  const all=papersIn(f.id, VIEW.subject);
+  let all=papersIn(f.id, VIEW.subject);
   const base={level:'folder',cat:f.id}; if(VIEW.subject) base.subject=VIEW.subject;
+  // an extra folder level that collects some sub-folders (e.g. the levelled chapter tests in Topic-wise)
+  const SUP=SUPER_FOLDERS.find(x=>x.cat===f.id), inSup=p=>!!SUP && SUP.test(splitName(p.name).g);
+  const isSup=!!(SUP && VIEW.sup); let supCard='';
+  if(isSup) all=all.filter(inSup);
+  else if(SUP){ const sl=all.filter(inSup); all=all.filter(p=>!inSup(p));
+    if(sl.length) supCard=folderCard(SUP.icon||'📂', SUP.name, SUP.desc||'', sl.length, doneCount(sl), Object.assign({sup:1}, base)); }
+  const gbase = isSup ? Object.assign({sup:1}, base) : base;
   const trail=[{label:'All Folders',view:{level:'home'}}];
-  if(VIEW.subject){ trail.push({label:f.title,view:{level:'folder',cat:f.id}}); }
-  if(VIEW.group){ trail.push({label:VIEW.subject||f.title,view:base}); trail.push({label:VIEW.group}); }
-  else trail.push({label:VIEW.subject||f.title});
+  if(VIEW.subject) trail.push({label:f.title,view:{level:'folder',cat:f.id}});
+  const lv=[{label:VIEW.subject||f.title,view:base}];
+  if(isSup) lv.push({label:SUP.name,view:gbase});
+  if(VIEW.group) lv.push({label:VIEW.group});
+  lv[lv.length-1]={label:lv[lv.length-1].label}; trail.push(...lv);
   crumbs(trail);
-  $('listTitle').textContent = VIEW.group ? VIEW.group : (VIEW.subject ? f.title+' — '+VIEW.subject : f.title);
+  $('listTitle').textContent = VIEW.group ? VIEW.group : (isSup ? SUP.name : (VIEW.subject ? f.title+' — '+VIEW.subject : f.title));
   // sub-folders (groups) inside this folder
   let groupCards='', list=all;
   if(VIEW.group) list=all.filter(p=>splitName(p.name).g===VIEW.group);
   else {
     const groups=[...new Set(all.map(p=>splitName(p.name).g).filter(Boolean))].sort(natCmp);
     groupCards=groups.map(g=>{ const gl=all.filter(p=>splitName(p.name).g===g); return f.practice
-      ? folderCard('📂', g, '', gl.length, sheetsDone(gl), Object.assign({group:g}, base), '', 'sheet')
-      : folderCard('📂', g, '', gl.length, doneCount(gl), Object.assign({group:g}, base)); }).join('');
+      ? folderCard('📂', g, '', gl.length, sheetsDone(gl), Object.assign({group:g}, gbase), '', 'sheet')
+      : folderCard('📂', g, '', gl.length, doneCount(gl), Object.assign({group:g}, gbase)); }).join('');
+    groupCards=supCard+groupCards;
     list=all.filter(p=>!splitName(p.name).g);
   }
   if(f.practice){
@@ -755,7 +770,7 @@ function renderPapers(){
     $('listSub').textContent = all.length ? `${L.length} sheet${L.length>1?'s':''} · tap an option to check it instantly · solutions below every question` : '';
   } else
   $('listSub').textContent = all.length ? (VIEW.group ? `${list.length} paper${list.length>1?'s':''} · ${doneCount(list)} attempted` : `${all.length} paper${all.length>1?'s':''} · ${doneCount(all)} attempted`) : '';
-  if(!all.length){ grid.innerHTML=`<div class="card empty" style="grid-column:1/-1">No ${f.practice?'sheets':'papers'} in this folder yet. New ${f.practice?'sheets':'papers'} will appear here soon.</div>`; return; }
+  if(!all.length && !supCard){ grid.innerHTML=`<div class="card empty" style="grid-column:1/-1">No ${f.practice?'sheets':'papers'} in this folder yet. New ${f.practice?'sheets':'papers'} will appear here soon.</div>`; return; }
   if(VIEW.group) list=list.slice().sort((a,b)=>natCmp(splitName(a.name).t, splitName(b.name).t));
   grid.classList.toggle('folder-grid', !!groupCards && !list.length);
   if(f.practice){ let ns=0; grid.innerHTML = groupCards + list.map(p=>isTimed(p)?paperCard(p,ns++):sheetCard(p,ns++)).join(''); return; }

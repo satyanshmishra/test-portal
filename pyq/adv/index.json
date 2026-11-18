@@ -2,16 +2,16 @@
  "exam": "JEE Advanced",
  "prefix": "A",
  "types": {
-  "mcq": 460,
-  "multi": 125,
-  "sub": 279,
-  "tf": 22,
-  "fill": 101,
+  "mcq": 527,
+  "multi": 156,
+  "sub": 340,
+  "tf": 24,
+  "fill": 106,
   "match": 14,
-  "num": 124
+  "num": 144
  },
- "version": "706886fe34",
- "total": 1125,
+ "version": "92a472c92c",
+ "total": 1311,
  "years": [
   1978,
   1979,
@@ -493,6 +493,36 @@
      "id": "16.4",
      "title": "Limit of a Sum and Reduction Formulae",
      "n": 12
+    }
+   ],
+   "mrq": []
+  },
+  {
+   "id": "17",
+   "title": "Application of Calculus",
+   "file": "17_application_of_calculus.json",
+   "n": 186,
+   "nMrq": 0,
+   "subs": [
+    {
+     "id": "17.1",
+     "title": "Tangents, Normals and Rate of Change",
+     "n": 16
+    },
+    {
+     "id": "17.2",
+     "title": "Monotonicity, Rolle's and Mean Value Theorems",
+     "n": 57
+    },
+    {
+     "id": "17.3",
+     "title": "Maxima and Minima",
+     "n": 57
+    },
+    {
+     "id": "17.4",
+     "title": "Area Bounded by Curves",
+     "n": 56
     }
    ],
    "mrq": []

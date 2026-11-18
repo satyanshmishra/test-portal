@@ -2,16 +2,16 @@
  "exam": "JEE Advanced",
  "prefix": "A",
  "types": {
-  "mcq": 318,
-  "multi": 72,
-  "sub": 172,
-  "tf": 18,
-  "fill": 61,
-  "match": 8,
-  "num": 84
+  "mcq": 353,
+  "multi": 77,
+  "sub": 188,
+  "tf": 19,
+  "fill": 69,
+  "match": 9,
+  "num": 96
  },
- "version": "e361b42083",
- "total": 733,
+ "version": "4e7113a6b8",
+ "total": 811,
  "years": [
   1978,
   1979,
@@ -333,6 +333,56 @@
      "id": "10.3",
      "title": "Range, Maximum-Minimum and Inequalities",
      "n": 12
+    }
+   ],
+   "mrq": []
+  },
+  {
+   "id": "11",
+   "title": "Trigonometric Equations",
+   "file": "11_trigonometric_equations.json",
+   "n": 52,
+   "nMrq": 0,
+   "subs": [
+    {
+     "id": "11.1",
+     "title": "General Solution of Trigonometric Equations",
+     "n": 13
+    },
+    {
+     "id": "11.2",
+     "title": "Number of Solutions and Solutions in an Interval",
+     "n": 19
+    },
+    {
+     "id": "11.3",
+     "title": "Trigonometric Inequalities, Range and Related Identities",
+     "n": 20
+    }
+   ],
+   "mrq": []
+  },
+  {
+   "id": "12",
+   "title": "Inverse Trigonometric Functions",
+   "file": "12_inverse_trigonometric_functions.json",
+   "n": 26,
+   "nMrq": 0,
+   "subs": [
+    {
+     "id": "12.1",
+     "title": "Principal Values and Evaluation",
+     "n": 9
+    },
+    {
+     "id": "12.2",
+     "title": "Properties, Identities and Series",
+     "n": 8
+    },
+    {
+     "id": "12.3",
+     "title": "Equations with Inverse Trigonometric Functions",
+     "n": 9
     }
    ],
    "mrq": []

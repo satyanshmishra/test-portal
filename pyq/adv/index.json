@@ -2,16 +2,16 @@
  "exam": "JEE Advanced",
  "prefix": "A",
  "types": {
-  "mcq": 662,
-  "multi": 197,
-  "sub": 427,
+  "mcq": 674,
+  "multi": 206,
+  "sub": 430,
   "tf": 29,
-  "fill": 135,
-  "match": 17,
-  "num": 171
+  "fill": 136,
+  "match": 18,
+  "num": 173
  },
- "version": "1ba362f219",
- "total": 1638,
+ "version": "3d9afa38ec",
+ "total": 1666,
  "years": [
   1978,
   1979,
@@ -668,6 +668,31 @@
      "id": "22.3",
      "title": "Locus and Problems with Other Conics",
      "n": 10
+    }
+   ],
+   "mrq": []
+  },
+  {
+   "id": "23",
+   "title": "Hyperbola",
+   "file": "23_hyperbola.json",
+   "n": 28,
+   "nMrq": 0,
+   "subs": [
+    {
+     "id": "23.1",
+     "title": "Standard Equation and Basic Properties",
+     "n": 9
+    },
+    {
+     "id": "23.2",
+     "title": "Tangents and Normals",
+     "n": 10
+    },
+    {
+     "id": "23.3",
+     "title": "Locus and Problems with Other Conics",
+     "n": 9
     }
    ],
    "mrq": []

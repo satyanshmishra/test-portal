@@ -1,8 +1,8 @@
 {
  "exam": "JEE Main",
  "prefix": "M",
- "version": "bc6c28d2ab",
- "total": 4417,
+ "version": "cd018488a0",
+ "total": 5153,
  "years": [
   2002,
   2003,
@@ -831,6 +831,107 @@
      "title": "Integral equations leading to differential equations",
      "n": 19,
      "times": 19
+    }
+   ]
+  },
+  {
+   "id": "11",
+   "title": "Two Dimensional Geometry",
+   "file": "11_two_dimensional_geometry.json",
+   "n": 736,
+   "nMrq": 69,
+   "subs": [
+    {
+     "id": "11.1",
+     "title": "Rectangular Cartesian Coordinates",
+     "n": 41
+    },
+    {
+     "id": "11.2",
+     "title": "Straight Lines",
+     "n": 145
+    },
+    {
+     "id": "11.3",
+     "title": "Circles",
+     "n": 188
+    },
+    {
+     "id": "11.4",
+     "title": "Parabola",
+     "n": 140
+    },
+    {
+     "id": "11.5",
+     "title": "Ellipse",
+     "n": 118
+    },
+    {
+     "id": "11.6",
+     "title": "Hyperbola",
+     "n": 104
+    }
+   ],
+   "mrq": [
+    {
+     "id": "LA",
+     "title": "Triangle: vertices, centroid, incentre and orthocentre",
+     "n": 6,
+     "times": 6
+    },
+    {
+     "id": "LB",
+     "title": "Straight lines: angle bisectors, distances, reflection and families",
+     "n": 8,
+     "times": 8
+    },
+    {
+     "id": "CA",
+     "title": "Circle: centre, radius, intercepts and relative position",
+     "n": 9,
+     "times": 9
+    },
+    {
+     "id": "CB",
+     "title": "Circle: chords, tangents and loci",
+     "n": 8,
+     "times": 8
+    },
+    {
+     "id": "PA",
+     "title": "Parabola: focal chords, chords and parametric points",
+     "n": 9,
+     "times": 9
+    },
+    {
+     "id": "PB",
+     "title": "Parabola: loci and images",
+     "n": 4,
+     "times": 4
+    },
+    {
+     "id": "EA",
+     "title": "Ellipse: eccentricity, foci and latus rectum",
+     "n": 8,
+     "times": 8
+    },
+    {
+     "id": "EB",
+     "title": "Ellipse with lines and points",
+     "n": 5,
+     "times": 5
+    },
+    {
+     "id": "HA",
+     "title": "Hyperbola: eccentricity, foci and latus rectum",
+     "n": 9,
+     "times": 9
+    },
+    {
+     "id": "HB",
+     "title": "Hyperbola with lines and chords",
+     "n": 3,
+     "times": 3
     }
    ]
   },

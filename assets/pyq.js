@@ -25,7 +25,59 @@ const pyqShowSrc = () => CFG.PYQ_SHOW_SOURCE !== false;
 const pyqKey = () => 'stp_pyq_' + ((USER && USER.id) || 'x');
 let PYQ_PROG = null, PYQ_PROG_K = '';
 function pyqProg(){ if(!PYQ_PROG || PYQ_PROG_K !== pyqKey()){ PYQ_PROG_K = pyqKey(); PYQ_PROG = LS.get(PYQ_PROG_K, {}) || {}; } return PYQ_PROG; }
-function pyqSaveProg(){ LS.set(pyqKey(), PYQ_PROG || {}); }
+function pyqSaveProg(){ LS.set(pyqKey(), PYQ_PROG || {}); LS.set(pyqKey() + '_dirty', true); pyqSyncSoon(); }
+
+/* ---------- progress saved in the student's account (backend/pyq_progress.sql) ----------
+   Loaded once per login when the PYQ page opens; every change is sent a few seconds later.
+   Changes made on this device that have not reached the server yet win over the server copy. */
+const PYQ_SYNC = { k: '', t: 0, off: false, busy: false, again: false, tok: '' };
+function pyqMerge(srv, loc){
+  const out = Object.assign({}, srv);
+  Object.keys(loc).forEach(k => {
+    if(k.charAt(0) === '_' && loc[k] && typeof loc[k] === 'object') out[k] = Object.assign({}, srv[k] || {}, loc[k]);
+    else out[k] = loc[k];
+  });
+  return out;
+}
+async function pyqSyncLoad(){
+  if(PYQ_SYNC.off || !SB || !USER || !USER.id || PYQ_SYNC.k === pyqKey()) return;
+  try{
+    const r = await Promise.race([SB.rpc('pyq_prog_get'), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 8000))]);
+    if(r.error){ if(/Could not find the function|does not exist/i.test(r.error.message || '')) PYQ_SYNC.off = true; return; }
+    const srv = (r.data && typeof r.data === 'object') ? r.data : {}, loc = pyqProg();
+    const dirty = !!LS.get(pyqKey() + '_dirty', false);
+    PYQ_PROG = dirty ? pyqMerge(srv, loc) : (Object.keys(srv).length ? srv : loc);
+    PYQ_PROG_K = pyqKey(); LS.set(pyqKey(), PYQ_PROG);
+    PYQ_SYNC.k = pyqKey();
+    if(dirty || (!Object.keys(srv).length && Object.keys(loc).length)) pyqSyncPush();
+  }catch(e){ /* offline: keep working on this device, try again next time */ }
+}
+function pyqSyncSoon(){ if(PYQ_SYNC.off || !SB) return; clearTimeout(PYQ_SYNC.t); PYQ_SYNC.t = setTimeout(pyqSyncPush, 3000); }
+async function pyqSyncPush(){
+  if(PYQ_SYNC.off || !SB || !USER || PYQ_SYNC.k !== pyqKey()) return;      // never overwrite the account before it was loaded
+  if(PYQ_SYNC.busy){ PYQ_SYNC.again = true; return; }
+  PYQ_SYNC.busy = true;
+  try{
+    const r = await SB.rpc('pyq_prog_put', { p_data: PYQ_PROG || {} });
+    if(r.error){ if(/Could not find the function|does not exist/i.test(r.error.message || '')) PYQ_SYNC.off = true; }
+    else LS.set(pyqKey() + '_dirty', false);
+  }catch(e){}
+  PYQ_SYNC.busy = false;
+  if(PYQ_SYNC.again){ PYQ_SYNC.again = false; pyqSyncSoon(); }
+}
+/* leaving the page (phone home button, closing the tab): send what is pending right away */
+document.addEventListener('visibilitychange', async () => {
+  if(document.visibilityState !== 'hidden' || PYQ_SYNC.off || !SB || PYQ_SYNC.k !== pyqKey() || !LS.get(pyqKey() + '_dirty', false)) return;
+  clearTimeout(PYQ_SYNC.t);
+  try{
+    const tok = PYQ_SYNC.tok || ((await SB.auth.getSession()).data.session || {}).access_token;
+    const body = JSON.stringify({ p_data: PYQ_PROG || {} });
+    if(!tok || body.length > 60000) return;                 // keep-alive requests are limited to 64 KB; the next visit sends it instead
+    fetch(CFG.SUPABASE_URL.replace(/\/$/, '') + '/rest/v1/rpc/pyq_prog_put', { method: 'POST', keepalive: true,
+      headers: { 'Content-Type': 'application/json', apikey: CFG.SUPABASE_KEY, Authorization: 'Bearer ' + tok },
+      body }).then(r => { if(r.ok) LS.set(pyqKey() + '_dirty', false); }).catch(() => {});
+  }catch(e){}
+});
 /* the student's own 1–3 star rating of a question (kept with the progress, key _star) */
 const pyqStar = id => ((pyqProg()._star || {})[id]) || 0;
 const STAR_TXT = { 1: '★ 1 star', 2: '★★ 2 stars', 3: '★★★ 3 stars' };
@@ -109,7 +161,8 @@ async function openPyq(exam, mode){
     const f = Object.assign(PF_DEF(), mode === 'mrq' ? { sort: 'book' } : {}, LS.get(pfKey(exam, mode), {}) || {});
     f.units = f.units.filter(id => idx.units.some(u => u.id === id));
     PQ = { exam, mode, idx, f, list: [] };
-    await pyqLoadUnits(exam, pyqNeededUnits());
+    await Promise.all([pyqLoadUnits(exam, pyqNeededUnits()), pyqSyncLoad()]);
+    try{ PYQ_SYNC.tok = ((await SB.auth.getSession()).data.session || {}).access_token || ''; }catch(e){}
     $('pyqTopT').textContent = (PYQ_EXAMS.find(x => x.id === exam) || {}).title + ' · ' + PYQ_MODES[mode].title;
     renderPyqSide(); applyPyq(true);
     busy(false); show('pyq'); document.documentElement.style.setProperty('--pqTop', document.querySelector('#pyq .topbar').offsetHeight + 'px');

@@ -354,15 +354,24 @@ function renderPyqHead(){
         <label><span>Per page</span><select id="pfPer">${[10, 20, 30, 50].map(n => `<option${f.per === n ? ' selected' : ''}>${n}</option>`).join('')}</select></label>
       </div>
     </div>
-    <div class="ph-chips">${chips || '<span class="ph-none">All topics · all years · all types</span>'}${chips ? '<button type="button" class="linkbtn" data-rm="all">Clear all</button>' : ''}</div>`;
+    <div class="ph-chips">${chips || '<span class="ph-none">All topics · all years · all types</span>'}${chips ? '<button type="button" class="linkbtn" data-rm="all">Clear all</button>' : ''}</div>
+    ${L.length ? ptCfgHTML() : ''}`;
+  ptPaintFoot();
 }
 $('pyqHead').addEventListener('change', e => {
   if(!PQ) return;
   if(e.target.id === 'pfSort'){ PQ.f.sort = e.target.value; if(PQ.f.sort === 'shuffle') PQ.f.seed = 1 + Math.floor(Math.random() * 2e9); applyPyq(); }
   if(e.target.id === 'pfPer'){ PQ.f.per = Number(e.target.value); applyPyq(); }
+  if(e.target.id === 'ptReveal') ptChange('reveal', e.target.value === 'end' ? 'end' : Number(e.target.value));
+  if(e.target.id === 'ptTimer') ptChange('timer', e.target.value);
+  if(e.target.id === 'ptPer') ptChange('per', Number(e.target.value));
 });
 $('pyqHead').addEventListener('click', e => {
-  const b = e.target.closest('[data-rm]'); if(!b || !PQ) return;
+  if(!PQ) return;
+  if(e.target.closest('[data-ptrun]')){ ptSetRun(!PT.run); return; }
+  if(e.target.closest('[data-ptreset]')){ ptResetPage(); return; }
+  if(e.target.closest('.pt-cfg-tg')){ const c = $('ptCfg'); c.classList.toggle('open'); LS.set('stp_pyq_cfg_open', c.classList.contains('open')); return; }
+  const b = e.target.closest('[data-rm]'); if(!b) return;
   const f = PQ.f, k = b.dataset.rm;
   if(k === 'all'){ PQ.f = Object.assign(PF_DEF(), { sort: f.sort, per: f.per }); renderPyqSide(); applyPyq(); return; }
   if(k.startsWith('unit:')) f.units = f.units.filter(x => x !== k.slice(5));
@@ -400,7 +409,7 @@ function renderPyqList(){
            <button type="button" class="btn sq-check">Check</button></div>`;
     html += `<article class="card sq pq" id="pq_${esc(q.id)}" data-id="${esc(q.id)}">
       <div class="sq-head"><span class="sq-no">Q${s + j + 1}</span><span class="pill">${PYQ_TYPES[q.type] || ''}</span>
-        ${pyqShowSrc() && srcText(q) ? `<span class="pill src">${esc(srcText(q))}</span>` : ''}<span class="sq-badge"></span></div>
+        ${pyqShowSrc() && srcText(q) ? `<span class="pill src">${esc(srcText(q))}</span>` : ''}<span class="sq-time" hidden></span><span class="sq-badge"></span></div>
       <div class="q-text">${q.q}</div>
       ${body}
       <div class="sq-fb" aria-live="polite"></div>
@@ -419,9 +428,14 @@ function renderPyqList(){
         <p class="pq-src">${esc([srcText(q), U.title, sub ? sub.title : ''].filter(Boolean).join(' · '))}</p>
       </div></div></div>
     </article>`;
+    const R = ptBlk(page.length);
+    if(R && (j % R === R - 1 || j === page.length - 1)) html += `<div class="blk" id="ptb${Math.floor(j / R)}" data-ptb="${Math.floor(j / R)}"></div>`;
   });
-  $('pyqList').innerHTML = html;
+  PT.rb = {};
+  $('pyqList').innerHTML = html + '<div id="ptSum"></div>';
+  ptAutoReveal(true);
   page.forEach(q => paintPq(q));
+  ptPaintBlocks(); ptPaintSum();
   renderPager();
   typeset($('pyqList'));
 }
@@ -443,56 +457,74 @@ const pqById = id => PQ.list.find(q => q.id === id);
 function paintPq(q){
   const el = $('pq_' + q.id); if(!el) return;
   const r = pyqProg()[q.id], ok = !!r && r.ok, bad = !!r && !r.ok;
-  el.classList.toggle('is-ok', ok); el.classList.toggle('is-bad', bad);
+  const pd = r ? null : ptPend(q.id), live = ptLive(q.id);
+  el.classList.toggle('is-ok', ok); el.classList.toggle('is-bad', bad); el.classList.toggle('is-sv', !!pd);
   if(pyqOptType(q.type) || q.type === 'multi'){
-    const multi = q.type === 'multi', sel = (PQ.sel || {})[q.id] || [];
+    const multi = q.type === 'multi', sel = (PQ.sel || {})[q.id] || (pd && multi ? pd.a : []);
     el.querySelectorAll('.opt').forEach(b => {
       const k = +b.dataset.k, mine = !!r && (multi ? (r.a || []).indexOf(k) >= 0 : Number(r.a) === k);
       b.classList.toggle('correct', ok && mine); b.classList.toggle('wrong', bad && mine);
       b.classList.toggle('dim', !!r && !mine); b.disabled = !!r;
-      b.classList.toggle('sel', multi && !r && sel.indexOf(k) >= 0);
+      b.classList.toggle('sel', multi ? (!r && sel.indexOf(k) >= 0) : (!!pd && Number(pd.a) === k));
     });
-    if(multi){ const mc = el.querySelector('.sq-multi'); mc.hidden = !!r; }
+    if(multi){ const mc = el.querySelector('.sq-multi'); mc.hidden = !!r; mc.querySelector('.sq-mcheck').textContent = live ? 'Check Answer' : 'Save Answer'; }
   } else if(PYQ_SELF[q.type]){
     const shown = !!(PQ.shown || {})[q.id];
     el.querySelector('.sq-show').hidden = !!r || shown;
     el.querySelector('.sq-selfq').hidden = !!r || !shown;
   } else {
     const inp = el.querySelector('.sq-in'), cb = el.querySelector('.sq-check');
-    inp.value = r ? r.a : ''; inp.disabled = !!r; cb.disabled = !!r;
-    inp.classList.toggle('ok', ok); inp.classList.toggle('bad', bad);
+    inp.value = r ? r.a : (pd ? pd.a : '');
+    inp.disabled = !!r; cb.disabled = !!r; cb.textContent = live ? 'Check' : 'Save';
+    inp.classList.toggle('ok', ok); inp.classList.toggle('bad', bad); inp.classList.toggle('sv', !!pd);
   }
   const t = r ? (r.t || 1) : 0;
   el.querySelector('.sq-fb').innerHTML = ok ? `<span class="fb-ok">🎉 Correct! ${t > 1 ? 'You got it on try ' + t + '.' : 'Well done.'}</span>`
-    : bad ? (PYQ_SELF[q.type] ? '<span class="fb-bad">Marked for revision. Tap <b>Try Again</b> when you are ready.</span>' : '<span class="fb-bad">✘ Not correct. Tap <b>Try Again</b>, or open the solution.</span>') : '';
-  el.querySelector('.sq-badge').innerHTML = ok ? '<span class="sb-ok">✓ Solved</span>' : bad ? '<span class="sb-bad">✗ Try again</span>' : '';
+    : bad ? (PYQ_SELF[q.type] ? '<span class="fb-bad">Marked for revision. Tap <b>Try Again</b> when you are ready.</span>' : '<span class="fb-bad">✘ Not correct. Tap <b>Try Again</b>, or open the solution.</span>')
+    : pd ? `<span class="fb-sv">✓ Answer saved — you will see if it is right ${ptWaitText(q.id)}. You can still change it.</span>` : '';
+  el.querySelector('.sq-badge').innerHTML = ok ? '<span class="sb-ok">✓ Solved</span>' : bad ? '<span class="sb-bad">✗ Try again</span>' : pd ? '<span class="sb-sv">● Answered</span>' : '';
   el.querySelector('.sq-retry').hidden = !bad;
   el.querySelector('.sq-reset').hidden = !ok;
+  const sb = el.querySelector('.sq-solbtn'), hideSol = !r && !live && !PYQ_SELF[q.type];
+  sb.hidden = hideSol;                                   // no peeking before the answers are shown
+  if(hideSol && el.classList.contains('sol-open')){ el.classList.remove('sol-open'); sb.innerHTML = '📘 View Solution'; }
+  ptPaintQTime(q.id);
 }
 function answerPq(q, a, x, y){
   const P = pyqProg(); if(P[q.id]) return;
+  if(ptOn() && !PT.run) ptSetRun(true);
   let ok;
   if(q.bonus) ok = true;
   else if(PYQ_SELF[q.type]) ok = a === 'ok';
   else if(q.type === 'multi') ok = a.length === q.ans.length && a.every((k, i) => k === q.ans[i]);
   else if(pyqOptType(q.type)) ok = Number(a) === Number(q.ans) || (q.alt || []).indexOf(Number(a)) >= 0;
   else ok = [q.ans].concat(q.alt || []).some(v => Math.abs(parseFloat(a) - Number(v)) <= (q.tol != null ? Number(q.tol) : 0.001) + 1e-9);
-  const tries = ((PYQ_PROG._t || {})[q.id] || 0) + 1;
-  PYQ_PROG._t = PYQ_PROG._t || {}; PYQ_PROG._t[q.id] = tries;
-  P[q.id] = { a, ok, t: tries };
-  pyqSaveProg(); paintPq(q); renderPyqHead();
+  if(!PYQ_SELF[q.type] && !ptLive(q.id)){              // answers hidden until the block is done
+    const pend = P._pend = P._pend || {};
+    pend[q.id] = { a, ok };
+    if(PQ.sel) delete PQ.sel[q.id];
+    pyqSaveProg(); paintPq(q); ptPaintBlocks(); ptPaintStatus();
+    ptAutoReveal(false);
+    return;
+  }
+  ptCommit(q, a, ok);
+  paintPq(q); renderPyqHead(); ptPaintSum(); ptPaintStatus();
   const el = $('pq_' + q.id);
   if(ok) burst(x, y, false);
   else { el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); }
 }
 $('pyqList').addEventListener('click', e => {
   if(!PQ) return;
+  const rb = e.target.closest('[data-ptshow]');
+  if(rb){ ptReveal(+rb.dataset.ptshow); return; }
+  const jq = e.target.closest('[data-ptjump]');
+  if(jq){ const el = $('pq_' + jq.dataset.ptjump); if(el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
   const card = e.target.closest('.pq'); if(!card) return;
   const q = pqById(card.dataset.id); if(!q) return;
   const opt = e.target.closest('.opt');
   if(opt && !opt.disabled){
     if(q.type === 'multi'){
-      PQ.sel = PQ.sel || {}; const S = PQ.sel[q.id] = PQ.sel[q.id] || [], k = +opt.dataset.k, i = S.indexOf(k);
+      PQ.sel = PQ.sel || {}; const S = PQ.sel[q.id] = PQ.sel[q.id] || (ptPend(q.id) ? ptPend(q.id).a.slice() : []), k = +opt.dataset.k, i = S.indexOf(k);
       if(i >= 0) S.splice(i, 1); else S.push(k);
       opt.classList.toggle('sel', i < 0); card.querySelector('.sq-fb').innerHTML = ''; return;
     }
@@ -511,7 +543,7 @@ $('pyqList').addEventListener('click', e => {
   const so = e.target.closest('.sq-self-ok'), sx = e.target.closest('.sq-self-bad');
   if(so || sx){ const r = (so || sx).getBoundingClientRect(); answerPq(q, so ? 'ok' : 'no', r.left + r.width / 2, r.top + r.height / 2); return; }
   if(e.target.closest('.sq-check')) return checkPqNum(q, card);
-  if(e.target.closest('.sq-retry') || e.target.closest('.sq-reset')){ delete pyqProg()[q.id]; if(PQ.sel) delete PQ.sel[q.id]; if(PQ.shown) delete PQ.shown[q.id]; pyqSaveProg(); paintPq(q); renderPyqHead(); return; }
+  if(e.target.closest('.sq-retry') || e.target.closest('.sq-reset')){ delete pyqProg()[q.id]; if(PQ.sel) delete PQ.sel[q.id]; if(PQ.shown) delete PQ.shown[q.id]; pyqSaveProg(); paintPq(q); renderPyqHead(); ptPaintBlocks(); ptPaintSum(); ptPaintStatus(); return; }
   const sb = e.target.closest('.sq-solbtn');
   if(sb){ const open = !card.classList.contains('sol-open'); card.classList.toggle('sol-open', open); sb.setAttribute('aria-expanded', open); sb.innerHTML = open ? '📕 Hide Solution' : '📘 View Solution'; }
 });
@@ -524,3 +556,254 @@ function checkPqNum(q, card){
 $('pyqList').addEventListener('keydown', e => {
   if(e.key === 'Enter' && e.target.classList.contains('sq-in') && PQ){ e.preventDefault(); const c = e.target.closest('.pq'); const q = pqById(c.dataset.id); if(q) checkPqNum(q, c); }
 });
+
+/* =====================================================================
+   PYQ TIMER + ANSWER REVEAL  (same idea as the Practice Sheets)
+   Each page of PYQs works like one sheet. The student chooses:
+     • when answers are shown: immediately, after every 5/10/… questions, or at the end of the page
+     • a timer: off, stopwatch (records the time on every question) or a time limit per question
+   Time on every question is kept on this device (progress key _ms), pending answers in _pend.
+   A minimisable status panel (#pqStat) shows the clock and the counts for this page.
+   ===================================================================== */
+const PT_DEF = { reveal: 0, timer: 'off', per: 120 };
+const PT = { cfg: Object.assign({}, PT_DEF, LS.get('stp_pyq_cfg', {}) || {}), run: false, lastT: 0, lastSave: 0, cur: null, rb: {}, timeUp: false };
+const ptOn = () => PT.cfg.timer !== 'off';
+const ptPage = () => { if(!PQ) return []; const f = PQ.f, s = f.page * f.per; return PQ.list.slice(s, s + f.per); };
+const ptBlk = n => PT.cfg.reveal === 'end' ? n : (Number(PT.cfg.reveal) || 0);
+const ptMs = id => ((pyqProg()._ms || {})[id]) || 0;
+const ptPend = id => (pyqProg()._pend || {})[id] || null;
+const ptPos = id => ptPage().findIndex(q => q.id === id);
+const ptLimit = () => ptPage().length * PT.cfg.per * 1000;
+const ptTotal = () => ptPage().reduce((a, q) => a + ptMs(q.id), 0);
+function ptRange(b){ const n = ptPage().length, R = ptBlk(n); return [b * R, Math.min(n, b * R + R) - 1]; }
+function ptLive(id){                                         // is this question checked the moment it is answered?
+  const n = ptPage().length, R = ptBlk(n); if(!R) return true;
+  const j = ptPos(id); if(j < 0) return true;
+  return !!PT.rb[Math.floor(j / R)];
+}
+function ptWaitText(id){
+  const R = ptBlk(ptPage().length), j = ptPos(id); if(!R || j < 0) return 'soon';
+  if(PT.cfg.reveal === 'end') return 'at the end of this page';
+  const [s, e] = ptRange(Math.floor(j / R)), o = PQ.f.page * PQ.f.per;
+  return `after you answer Q${o + s + 1}–Q${o + e + 1}`;
+}
+function ptCommit(q, a, ok){
+  const P = pyqProg();
+  const tries = ((P._t || {})[q.id] || 0) + 1;
+  P._t = P._t || {}; P._t[q.id] = tries;
+  P[q.id] = { a, ok, t: tries };
+  if(P._pend) delete P._pend[q.id];
+  pyqSaveProg();
+}
+const ptDone = q => !!pyqProg()[q.id] || !!ptPend(q.id);
+/* show a block's answers: every pending answer in it is checked */
+function ptReveal(b, quiet){
+  const page = ptPage(), [s, e] = ptRange(b); let ok = 0, n = 0;
+  PT.rb[b] = true;
+  for(let j = s; j <= e; j++){
+    const q = page[j], pd = q && ptPend(q.id); if(!q) continue;
+    if(pd){ ptCommit(q, pd.a, pd.ok); }
+    const r = pyqProg()[q.id]; if(r){ n++; if(r.ok) ok++; }
+    paintPq(q);
+  }
+  ptPaintBlocks(); renderPyqHead(); ptPaintSum(); ptPaintStatus();
+  if(!quiet){
+    const o = PQ.f.page * PQ.f.per, lbl = PT.cfg.reveal === 'end' ? 'This page' : `Q${o + s + 1}–Q${o + e + 1}`;
+    toast(`${lbl}: ${ok}/${e - s + 1} correct${ok === e - s + 1 ? ' 🎉' : ''}`, 4500);
+    if(ok) burst(innerWidth / 2, innerHeight * 0.45, ok === e - s + 1);
+  }
+}
+/* blocks whose questions are all answered are shown */
+function ptAutoReveal(quiet){
+  const page = ptPage(), R = ptBlk(page.length); if(!R) return;
+  for(let b = 0; b * R < page.length; b++){
+    if(PT.rb[b]) continue;
+    const [s, e] = ptRange(b); let full = true, anyPend = false;
+    for(let j = s; j <= e; j++){ if(!ptDone(page[j])) { full = false; break; } if(ptPend(page[j].id)) anyPend = true; }
+    if(full){ if(quiet || !anyPend) { PT.rb[b] = true; if(anyPend) ptReveal(b, true); } else setTimeout(() => ptReveal(b), 450); }
+  }
+}
+function ptPaintBlocks(){
+  const page = ptPage(), R = ptBlk(page.length); if(!R) return;
+  const o = PQ.f.page * PQ.f.per;
+  for(let b = 0; b * R < page.length; b++){
+    const el = $('ptb' + b); if(!el) continue;
+    const [s, e] = ptRange(b), n = e - s + 1; let ans = 0, ok = 0;
+    for(let j = s; j <= e; j++){ const q = page[j]; if(ptDone(q)) ans++; const r = pyqProg()[q.id]; if(r && r.ok) ok++; }
+    const lbl = PT.cfg.reveal === 'end' ? 'this page' : `Q${o + s + 1}–Q${o + e + 1}`;
+    el.className = 'blk' + (PT.rb[b] ? ' done' : '');
+    el.innerHTML = PT.rb[b]
+      ? `<span>✓ Answers shown for ${lbl} · <b>${ok}/${n} correct</b>${n - ans ? ` · ${n - ans} not answered yet` : ''}</span>`
+      : `<span>🔒 Answers for ${lbl} are hidden · <b>${ans}/${n} answered</b></span><button type="button" class="btn small" data-ptshow="${b}">🔓 Show answers now</button>`;
+  }
+}
+
+/* ---------- settings ---------- */
+function ptCfgHTML(){
+  const c = PT.cfg, n = ptPage().length, steps = [];
+  for(let k = 5; k < n; k += 5) steps.push(k);
+  if(c.reveal !== 'end' && Number(c.reveal) && steps.indexOf(Number(c.reveal)) < 0) steps.push(Number(c.reveal));
+  const open = LS.get('stp_pyq_cfg_open', true);
+  const sum = [ptOn() ? (c.timer === 'watch' ? '⏱ Stopwatch' : '⏱ ' + perTxt(c.per) + ' per question') : 'No timer',
+               !ptBlk(n) ? 'answers immediately' : c.reveal === 'end' ? 'answers at the end of the page' : 'answers after every ' + c.reveal].join(' · ');
+  return `<div class="sh-cfg pt-cfg${open ? ' open' : ''}" id="ptCfg">
+    <button type="button" class="pt-cfg-tg"><span class="cfg-h">⚙️ Timer &amp; answers <span>— ${esc(sum)}</span></span><i>▾</i></button>
+    <div class="pt-cfg-in">
+    <p class="pt-note">Every page works like one practice sheet of ${n} questions — change <b>Per page</b> above for a shorter or longer set.</p>
+    <div class="cfg-grid">
+      <label class="cfg-f"><span>Show answers</span>
+        <select id="ptReveal">
+          <option value="0"${!Number(c.reveal) && c.reveal !== 'end' ? ' selected' : ''}>Immediately after each question</option>
+          ${steps.sort((a, b) => a - b).map(k => `<option value="${k}"${String(c.reveal) === String(k) ? ' selected' : ''}>After every ${k} questions</option>`).join('')}
+          <option value="end"${c.reveal === 'end' ? ' selected' : ''}>At the end of this page</option>
+        </select></label>
+      <label class="cfg-f"><span>Timer</span>
+        <select id="ptTimer">
+          <option value="off"${c.timer === 'off' ? ' selected' : ''}>No timer</option>
+          <option value="watch"${c.timer === 'watch' ? ' selected' : ''}>Stopwatch — record my time</option>
+          <option value="target"${c.timer === 'target' ? ' selected' : ''}>Time limit per question</option>
+        </select></label>
+      <label class="cfg-f"${c.timer === 'target' ? '' : ' hidden'}><span>Time per question</span>
+        <select id="ptPer">${PER_OPTS.map(s => `<option value="${s}"${Number(c.per) === s ? ' selected' : ''}>${perTxt(s)}</option>`).join('')}</select></label>
+    </div>
+    <div class="cfg-foot" id="ptFoot"></div>
+    </div>
+  </div>`;
+}
+function ptPaintFoot(){
+  const el = $('ptFoot'); if(!el) return;
+  if(!ptOn()){ el.innerHTML = ''; return; }
+  const lim = PT.cfg.timer === 'target' ? ` · ${fmt(ptLimit())} for the ${ptPage().length} questions on this page` : '';
+  el.innerHTML = `<span class="cfg-note">⏱ Timer ${PT.run ? 'running' : 'paused'}${lim}</span>
+    <span class="pt-fbtns">${ptTotal() ? '<button type="button" class="btn small light" data-ptreset="1">↺ Reset page times</button>' : ''}
+    <button type="button" class="btn small ${PT.run ? 'light' : 'green'}" data-ptrun="1">${PT.run ? '❚❚ Pause' : '▶ Start'}</button></span>`;
+}
+function ptChange(key, val){
+  PT.cfg[key] = val; LS.set('stp_pyq_cfg', PT.cfg);
+  if(key === 'reveal'){
+    if(!ptBlk(ptPage().length)){                                   // immediately: check every saved answer now
+      const P = pyqProg(), pend = P._pend || {};
+      PQ.list.forEach(q => { if(pend[q.id]) ptCommit(q, pend[q.id].a, pend[q.id].ok); });
+    }
+    renderPyqHead(); renderPyqList();
+    toast(!ptBlk(ptPage().length) ? 'Answers will now be shown immediately.' : (val === 'end' ? 'Answers will be shown at the end of the page.' : `Answers will be shown after every ${val} questions.`));
+    return;
+  }
+  if(key === 'timer'){
+    if(val === 'off') PT.run = false;
+    else { PT.run = true; PT.lastT = performance.now(); toast('⏱ Timer started. Your time on each question is recorded.'); }
+  }
+  PT.timeUp = PT.cfg.timer === 'target' && ptTotal() >= ptLimit();
+  renderPyqHead(); ptPage().forEach(q => ptPaintQTime(q.id)); ptPaintSum(); ptPaintStatus();
+}
+function ptSetRun(on){
+  if(!ptOn()) return;
+  PT.run = !!on; PT.lastT = performance.now(); pyqSaveProg(); ptPaintFoot(); ptPaintStatus();
+  if(PT.cur) ptPaintQTime(PT.cur);
+}
+function ptResetPage(){
+  if(!confirm('Reset the recorded times of the questions on this page?')) return;
+  const ms = pyqProg()._ms || {}; ptPage().forEach(q => delete ms[q.id]);
+  pyqSaveProg(); PT.timeUp = false; renderPyqHead(); ptPage().forEach(q => ptPaintQTime(q.id)); ptPaintSum(); ptPaintStatus();
+}
+
+/* ---------- clocks ---------- */
+function ptPaintQTime(id){
+  const el = $('pq_' + id); if(!el) return;
+  const tm = el.querySelector('.sq-time'); if(!tm) return;
+  const ms = ptMs(id);
+  if(!ptOn() || (!ms && PT.cur !== id)){ tm.hidden = true; return; }
+  tm.hidden = false;
+  const over = PT.cfg.timer === 'target' && ms > PT.cfg.per * 1000;
+  const q = pqById(id), running = PT.run && PT.cur === id && q && !ptDone(q);
+  tm.className = 'sq-time' + (over ? ' over' : '') + (running ? ' live' : '');
+  tm.textContent = '⏱ ' + fmt(ms) + (PT.cfg.timer === 'target' ? ' / ' + fmt(PT.cfg.per * 1000) : '');
+}
+function ptPaintSum(){
+  const el = $('ptSum'); if(!el) return;
+  const page = ptPage(), rec = page.map((q, j) => ({ q, j, ms: ptMs(q.id) })).filter(x => x.ms > 0);
+  if(!ptOn() || !rec.length){ el.innerHTML = ''; return; }
+  const P = pyqProg(), o = PQ.f.page * PQ.f.per, per = PT.cfg.per * 1000;
+  const answered = page.filter(ptDone), tot = ptTotal();
+  const avg = answered.length ? answered.reduce((a, q) => a + ptMs(q.id), 0) / answered.length : 0;
+  const over = PT.cfg.timer === 'target' ? rec.filter(x => x.ms > per).length : 0;
+  el.innerHTML = `<div class="card sheet-sum pt-sum">
+    <div class="ss-big">⏱ Time on this page</div>
+    <div class="ss-sum-time">
+      <div><b>${fmt(tot)}</b><span>Total time</span></div>
+      <div><b>${answered.length ? fmt(avg) : '—'}</b><span>Average per question</span></div>
+      ${PT.cfg.timer === 'target' ? `<div><b class="${over ? 'r' : 'g'}">${over}</b><span>Over ${perTxt(PT.cfg.per)}</span></div>` : ''}
+    </div>
+    <div class="ss-qt">${rec.map(x => { const r = P[x.q.id]; return `<button type="button" data-ptjump="${esc(x.q.id)}" class="qt${PT.cfg.timer === 'target' && x.ms > per ? ' over' : ''}${r ? (r.ok ? ' ok' : ' bad') : ''}">Q${o + x.j + 1}<b>${fmt(x.ms)}</b></button>`; }).join('')}</div>
+  </div>`;
+}
+function ptPaintStatus(){
+  const box = $('pqStat'); if(!box || !PQ) return;
+  const page = ptPage(), P = pyqProg(), n = page.length;
+  const ans = page.filter(ptDone).length, ok = page.filter(q => P[q.id] && P[q.id].ok).length, bad = page.filter(q => P[q.id] && !P[q.id].ok).length;
+  let clk = '—', lbl = 'Timer off', cls = '';
+  if(ptOn()){
+    const tot = ptTotal();
+    if(PT.cfg.timer === 'target'){
+      const rem = ptLimit() - tot;
+      lbl = rem >= 0 ? 'Time left · this page' : 'Overtime'; clk = (rem < 0 ? '+' : '') + fmt(Math.abs(rem));
+      cls = rem < 0 ? 'over' : (rem < 60000 ? 'warn' : '');
+    } else { lbl = 'Time on this page'; clk = fmt(tot); }
+    if(!PT.run) lbl += ' · paused';
+  }
+  $('ptClkLbl').textContent = lbl; $('ptClk').textContent = clk; $('ptClk').className = cls;
+  const cj = PT.cur ? ptPos(PT.cur) : -1, o = PQ.f.page * PQ.f.per;
+  $('ptNow').innerHTML = ptOn() && cj >= 0
+    ? `On <b>Q${o + cj + 1}</b> · ${fmt(ptMs(PT.cur))}${PT.cfg.timer === 'target' ? ' / ' + fmt(PT.cfg.per * 1000) : ''}${ptDone(page[cj]) ? ' <i>(answered)</i>' : ''}`
+    : (ptOn() ? 'Scroll to a question to start its clock' : 'Switch the timer on in <b>Timer &amp; answers</b>');
+  $('ptAns').textContent = ans + '/' + n; $('ptOk').textContent = ok; $('ptBad').textContent = bad;
+  const R = ptBlk(n);
+  $('ptMode').textContent = 'Answers: ' + (!R ? 'immediately' : PT.cfg.reveal === 'end' ? 'at the end of the page' : 'after every ' + R);
+  const run = $('ptRun'); run.hidden = !ptOn();
+  run.textContent = PT.run ? '❚❚ Pause' : '▶ Start'; run.className = 'btn small ' + (PT.run ? 'light' : 'green');
+  $('ptRv').hidden = !R || !page.some(q => ptPend(q.id));
+  $('ptPill').innerHTML = `<span>${ptOn() ? '⏱ <b class="' + cls + '">' + clk + '</b> · ' : ''}${ok}/${n} ✓</span><span class="ss-ex">▢</span>`;
+  if(PT.cur) ptPaintQTime(PT.cur);
+}
+function ptActive(){
+  const y = innerHeight * 0.42; let best = null, bd = 1e9;
+  for(const q of ptPage()){
+    const el = $('pq_' + q.id); if(!el) continue;
+    const r = el.getBoundingClientRect();
+    if(r.top <= y && r.bottom >= y) return q.id;
+    const d = Math.min(Math.abs(r.top - y), Math.abs(r.bottom - y));
+    if(d < bd){ bd = d; best = q.id; }
+  }
+  return bd < 200 ? best : null;
+}
+setInterval(() => {
+  if(!PQ || !$('pyq').classList.contains('active')){ PT.lastT = performance.now(); return; }
+  const now = performance.now(), dt = PT.lastT ? Math.min(2000, now - PT.lastT) : 0; PT.lastT = now;
+  const prev = PT.cur; PT.cur = ptOn() ? ptActive() : null;
+  if(prev && prev !== PT.cur) ptPaintQTime(prev);
+  if(ptOn() && PT.run && document.visibilityState === 'visible'){
+    const q = PT.cur && pqById(PT.cur);
+    if(q && !ptDone(q)){ const P = pyqProg(); P._ms = P._ms || {}; P._ms[q.id] = (P._ms[q.id] || 0) + dt; }
+    if(PT.cfg.timer === 'target' && !PT.timeUp && ptTotal() >= ptLimit()){
+      PT.timeUp = true; toast("⏰ Time's up for this page! You can keep going — extra time is shown as overtime.", 6000);
+    }
+    if(now - PT.lastSave > 5000){ PT.lastSave = now; pyqSaveProg(); }
+  }
+  ptPaintStatus();
+}, 500);
+document.addEventListener('visibilitychange', () => { PT.lastT = performance.now(); if(document.visibilityState === 'hidden' && PQ) pyqSaveProg(); });
+(function ptInitPanel(){
+  const box = $('pqStat'); if(!box) return;
+  const minPref = LS.get('stp_pyq_min', null);
+  box.classList.toggle('min', minPref === null ? true : !!minPref);
+  box.addEventListener('click', e => {
+    if(e.target.closest('#ptMin')){ box.classList.add('min'); LS.set('stp_pyq_min', true); return; }
+    if(e.target.closest('#ptPill')){ box.classList.remove('min'); LS.set('stp_pyq_min', false); return; }
+    if(e.target.closest('#ptRun')){ ptSetRun(!PT.run); return; }
+    if(e.target.closest('#ptRv')){
+      if(!confirm('Show the answers you have saved on this page now?')) return;
+      const R = ptBlk(ptPage().length); for(let b = 0; b * R < ptPage().length; b++) if(!PT.rb[b]) ptReveal(b, true);
+      toast('Answers shown.'); return;
+    }
+  });
+})();

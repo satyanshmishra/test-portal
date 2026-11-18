@@ -4,7 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Satyansh's Test Papers — Online Mock Tests</title>
-<link rel="stylesheet" href="assets/app.css">
+<link rel="stylesheet" href="assets/app.css?v=26111801">
+<link rel="stylesheet" href="assets/dark.css?v=26111801">
+<meta name="theme-color" content="#1f4e8c">
+<script src="assets/theme.js?v=26111801"></script>
 <script src="config.js"></script>
 <script src="assets/supabase.js"></script>
 <script>
@@ -319,6 +322,17 @@ window.MathJax = {
       <nav class="pyq-pager" id="pyqPager"></nav>
     </main>
   </div>
+  <aside class="sh-stat pq-stat min" id="pqStat" aria-label="PYQ timer and status">
+    <div class="ss-top"><b>⏱ This page</b><button type="button" class="ss-ic" id="ptMin" title="Minimise" aria-label="Minimise status">–</button></div>
+    <div class="ss-body">
+      <div class="ss-clock"><small id="ptClkLbl">Timer off</small><span id="ptClk">—</span></div>
+      <div class="ss-now" id="ptNow"></div>
+      <div class="ss-grid"><div><b id="ptAns">0</b><span>Answered</span></div><div><b id="ptOk" class="g">0</b><span>Correct</span></div><div><b id="ptBad" class="r">0</b><span>Wrong</span></div></div>
+      <div class="ss-mode" id="ptMode"></div>
+      <div class="ss-btns"><button type="button" class="btn small green" id="ptRun">▶ Start</button><button type="button" class="btn small light" id="ptRv">🔓 Show answers</button></div>
+    </div>
+    <button type="button" class="ss-pill" id="ptPill" title="Show timer and status"></button>
+  </aside>
 </section>
 
 <div class="modal" id="summaryModal" role="dialog" aria-modal="true" aria-labelledby="sumTitle">
@@ -1817,6 +1831,6 @@ window.addEventListener('hashchange',()=>{ if(/access_token=|error_description=/
   busy(false);
 })();
 </script>
-<script src="assets/pyq.js"></script>
+<script src="assets/pyq.js?v=26111801"></script>
 </body>
 </html>

@@ -2,16 +2,16 @@
  "exam": "JEE Advanced",
  "prefix": "A",
  "types": {
-  "mcq": 194,
-  "multi": 32,
-  "sub": 109,
-  "tf": 13,
-  "fill": 39,
+  "mcq": 255,
+  "multi": 47,
+  "sub": 142,
+  "tf": 15,
+  "fill": 50,
   "match": 7,
-  "num": 49
+  "num": 64
  },
- "version": "f00144d37d",
- "total": 443,
+ "version": "c2a4ffa22c",
+ "total": 580,
  "years": [
   1978,
   1979,
@@ -228,6 +228,36 @@
      "id": "6.4",
      "title": "Identities and Miscellaneous Counting",
      "n": 20
+    }
+   ],
+   "mrq": []
+  },
+  {
+   "id": "7",
+   "title": "Probability",
+   "file": "07_probability.json",
+   "n": 137,
+   "nMrq": 0,
+   "subs": [
+    {
+     "id": "7.1",
+     "title": "Classical Probability and Counting",
+     "n": 38
+    },
+    {
+     "id": "7.2",
+     "title": "Addition Theorem and Independent Events",
+     "n": 37
+    },
+    {
+     "id": "7.3",
+     "title": "Conditional Probability and Bayes' Theorem",
+     "n": 39
+    },
+    {
+     "id": "7.4",
+     "title": "Repeated Trials, Binomial Distribution and Random Variables",
+     "n": 23
     }
    ],
    "mrq": []

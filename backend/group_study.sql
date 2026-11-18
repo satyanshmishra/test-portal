@@ -111,7 +111,7 @@ begin
     return jsonb_build_object('id', g.id, 'code', g.code);
   end if;
   if g.status <> 'lobby' then raise exception 'This group has already started'; end if;
-  if (select count(*) from gs_members where group_id = g.id) >= 12 then raise exception 'This group is full (12 people)'; end if;
+  if (select count(*) from gs_members where group_id = g.id) >= 25 then raise exception 'This group is full (25 people)'; end if;
   insert into gs_members(group_id, user_id, name) values (g.id, auth.uid(), gs_name_());
   update gs_groups set v = v + 1, updated_at = now() where id = g.id;
   return jsonb_build_object('id', g.id, 'code', g.code);

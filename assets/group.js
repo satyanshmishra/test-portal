@@ -1,7 +1,7 @@
 /* =====================================================================
    GROUP STUDY  (screen #group, database: backend/group_study.sql)
    • Any student hosts a group → gets a 6-digit code → friends join with it.
-   • The host picks a Practice Sheet, a Test Paper or a PYQ set, the timer and
+   • The host picks a Practice Sheet or a PYQ set (test papers are not offered), the timer and
      when answers are shown, then starts. Everyone gets the same sheet.
    • Microphone must stay ON (only checked, never recorded or sent anywhere).
    • Leaving the screen costs a life: another tab, another app, minimising the browser,
@@ -121,8 +121,8 @@ async function gsJoin(){
 let GSC = null;             // create-form state
 async function gsCreateForm(){
   GSC = { kind: 'sheet', exam: 'main', units: [], years: 'all', mrq: false, count: 20, reveal: 'end', per: 0 };
-  const sheets = PAPERS.filter(p => paperVisible(p) && p.category === 'sheet');
-  const tests = PAPERS.filter(p => paperVisible(p) && ['topic', 'full', 'main3h'].indexOf(p.category || 'topic') >= 0);
+  // practice sheets only — test papers (and timed tests kept in the sheets folder) are not offered
+  const sheets = PAPERS.filter(p => paperVisible(p) && p.category === 'sheet' && !(typeof isTimed === 'function' && isTimed(p)));
   const opt = p => `<option value="${esc(p.id)}">${esc(showName(p.name))}${p.questions ? ' — ' + p.questions + ' Qs' : ''}</option>`;
   $('gsMain').innerHTML = `
     <div class="page-head"><h1>➕ New Group</h1><p>Everyone in the group will get exactly this sheet.</p></div>
@@ -131,12 +131,9 @@ async function gsCreateForm(){
       <div class="gs-f"><span>What will you solve?</span>
         <div class="gs-seg" id="gcKind">
           <button type="button" data-k="sheet" class="on">📝 Practice Sheet</button>
-          <button type="button" data-k="paper">📘 Test Paper</button>
           <button type="button" data-k="pyq">🎯 PYQ set</button>
         </div></div>
       <div id="gcSheet" class="gs-f"><span>Practice Sheet</span><select id="gcSheetSel">${sheets.map(opt).join('') || '<option value="">No practice sheets yet</option>'}</select></div>
-      <div id="gcPaper" class="gs-f" hidden><span>Test Paper</span><select id="gcPaperSel">${tests.map(opt).join('') || '<option value="">No papers</option>'}</select>
-        <small class="gs-note">Solving a test paper here does not use up anyone's real attempt of it.</small></div>
       <div id="gcPyq" hidden>
         <div class="gs-row">
           <label class="gs-f"><span>Exam</span><select id="gcExam">${PYQ_EXAMS.map(x => `<option value="${x.id}">${esc(x.title)}</option>`).join('')}</select></label>
@@ -194,8 +191,8 @@ async function gsCreate(){
       source = { kind: 'pyq', exam, qs: pool }; n = pool.length;
       if(!title){ const t = GSC.units.length === 1 ? idx.units.find(u => u.id === GSC.units[0]).title : (GSC.units.length ? GSC.units.length + ' topics' : 'Mixed topics'); title = (PYQ_EXAMS.find(x => x.id === exam) || {}).title + ' PYQs · ' + t; }
     } else {
-      const id = $(kind === 'sheet' ? 'gcSheetSel' : 'gcPaperSel').value;
-      if(!id) throw new Error('Choose a ' + (kind === 'sheet' ? 'practice sheet' : 'paper') + '.');
+      const id = $('gcSheetSel').value;
+      if(!id) throw new Error('Choose a practice sheet.');
       const paper = await fetchPaper(id);
       n = (paper.questions || []).length; if(!n) throw new Error('This paper has no questions.');
       const nm = (PAPERS.find(p => p.id === id) || {}).name || (paper.settings || {}).paperName || 'Sheet';
@@ -620,7 +617,7 @@ $('group').addEventListener('click', async e => {
   const op = t.closest('[data-gsopen]'); if(op) return gsEnter(op.dataset.gsopen);
   const kb = t.closest('#gcKind button');
   if(kb){ GSC.kind = kb.dataset.k; $('gcKind').querySelectorAll('button').forEach(b => b.classList.toggle('on', b === kb));
-    $('gcSheet').hidden = GSC.kind !== 'sheet'; $('gcPaper').hidden = GSC.kind !== 'paper'; $('gcPyq').hidden = GSC.kind !== 'pyq'; return; }
+    $('gcSheet').hidden = GSC.kind !== 'sheet'; $('gcPyq').hidden = GSC.kind !== 'pyq'; return; }
   if(t.closest('[data-gsmic]')){ if(await gsMicStart()){ if(GS && GS.view === 'lobby') gsLobby(); gsPaintMicGuard(); gsPush(true); toast('🎤 Microphone is on.'); } return; }
   if(t.closest('#gsCopy')){ try{ await navigator.clipboard.writeText(GS.st.code); toast('Code copied: ' + GS.st.code); }catch(err){ toast('Code: ' + GS.st.code); } return; }
   if(t.closest('#gsLeave')){ if(!confirm(GS.st.is_host ? 'Close this group for everyone?' : 'Leave this group?')) return;

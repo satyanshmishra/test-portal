@@ -2,16 +2,16 @@
  "exam": "JEE Advanced",
  "prefix": "A",
  "types": {
-  "mcq": 574,
-  "multi": 173,
-  "sub": 377,
-  "tf": 28,
-  "fill": 114,
+  "mcq": 620,
+  "multi": 180,
+  "sub": 408,
+  "tf": 29,
+  "fill": 133,
   "match": 16,
-  "num": 154
+  "num": 162
  },
- "version": "153d625cab",
- "total": 1436,
+ "version": "375a9489cb",
+ "total": 1548,
  "years": [
   1978,
   1979,
@@ -583,6 +583,36 @@
      "id": "19.4",
      "title": "Family of Lines and Concurrency",
      "n": 7
+    }
+   ],
+   "mrq": []
+  },
+  {
+   "id": "20",
+   "title": "Circles",
+   "file": "20_circles.json",
+   "n": 112,
+   "nMrq": 0,
+   "subs": [
+    {
+     "id": "20.1",
+     "title": "Equation of a Circle and Basic Properties",
+     "n": 30
+    },
+    {
+     "id": "20.2",
+     "title": "Tangents, Normals and Chords",
+     "n": 33
+    },
+    {
+     "id": "20.3",
+     "title": "System of Circles",
+     "n": 31
+    },
+    {
+     "id": "20.4",
+     "title": "Locus Problems",
+     "n": 18
     }
    ],
    "mrq": []

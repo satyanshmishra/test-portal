@@ -2,16 +2,16 @@
  "exam": "JEE Advanced",
  "prefix": "A",
  "types": {
-  "mcq": 295,
-  "multi": 67,
-  "sub": 161,
-  "tf": 17,
-  "fill": 56,
-  "match": 7,
-  "num": 78
+  "mcq": 318,
+  "multi": 72,
+  "sub": 172,
+  "tf": 18,
+  "fill": 61,
+  "match": 8,
+  "num": 84
  },
- "version": "1fe00ac05d",
- "total": 681,
+ "version": "e361b42083",
+ "total": 733,
  "years": [
   1978,
   1979,
@@ -288,6 +288,51 @@
      "id": "8.4",
      "title": "System of Linear Equations",
      "n": 25
+    }
+   ],
+   "mrq": []
+  },
+  {
+   "id": "9",
+   "title": "Logarithms",
+   "file": "09_logarithms.json",
+   "n": 11,
+   "nMrq": 0,
+   "subs": [
+    {
+     "id": "9.1",
+     "title": "Properties and Evaluation",
+     "n": 5
+    },
+    {
+     "id": "9.2",
+     "title": "Logarithmic and Exponential Equations, Inequalities",
+     "n": 6
+    }
+   ],
+   "mrq": []
+  },
+  {
+   "id": "10",
+   "title": "Trigonometric Ratios and Identities",
+   "file": "10_trigonometric_ratios_and_identities.json",
+   "n": 41,
+   "nMrq": 0,
+   "subs": [
+    {
+     "id": "10.1",
+     "title": "Trigonometric Ratios, Identities and Values",
+     "n": 20
+    },
+    {
+     "id": "10.2",
+     "title": "Product, Sum and Conditional Identities",
+     "n": 9
+    },
+    {
+     "id": "10.3",
+     "title": "Range, Maximum-Minimum and Inequalities",
+     "n": 12
     }
    ],
    "mrq": []

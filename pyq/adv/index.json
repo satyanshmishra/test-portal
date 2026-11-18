@@ -2,16 +2,16 @@
  "exam": "JEE Advanced",
  "prefix": "A",
  "types": {
-  "mcq": 743,
-  "multi": 234,
+  "mcq": 748,
+  "multi": 235,
   "sub": 459,
   "tf": 33,
   "fill": 153,
-  "match": 21,
+  "match": 28,
   "num": 190
  },
- "version": "55746c6aa9",
- "total": 1833,
+ "version": "7b62ebf37e",
+ "total": 1846,
  "years": [
   1978,
   1979,
@@ -753,6 +753,26 @@
      "id": "25.4",
      "title": "Vector Triple Product and Applications",
      "n": 15
+    }
+   ],
+   "mrq": []
+  },
+  {
+   "id": "26",
+   "title": "Miscellaneous Questions",
+   "file": "26_miscellaneous_questions.json",
+   "n": 13,
+   "nMrq": 0,
+   "subs": [
+    {
+     "id": "26.1",
+     "title": "Algebra and Calculus",
+     "n": 6
+    },
+    {
+     "id": "26.2",
+     "title": "Coordinate Geometry, Vectors and Statistics",
+     "n": 7
     }
    ],
    "mrq": []

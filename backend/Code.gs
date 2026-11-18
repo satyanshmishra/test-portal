@@ -58,11 +58,15 @@ function doPost(e) {
   try { body = JSON.parse((e && e.postData && e.postData.contents) || '{}'); }
   catch (err) { return out_({ ok: false, error: 'Invalid request' }); }
   try {
-    if (body.action === 'admin') return out_(admin_(body));
+    if (body.action === 'admin') {
+      var res = admin_(body);
+      if (['savePaper', 'setActive', 'setOrder', 'setCategory', 'deletePaper'].indexOf(body.op) >= 0) clearPaperCache_();
+      return out_(res);
+    }
     var u = auth_(body.token);            // every student action needs a valid login
     switch (body.action) {
       case 'me':       return out_(me_(u, body));
-      case 'papers':   return out_({ ok: true, papers: listPapers_(false) });
+      case 'papers':   return out_({ ok: true, papers: activePapers_() });
       case 'paper':    return out_({ ok: true, paper: getPaper_(body.id, false) });
       case 'attempts': return out_({ ok: true, attempts: attemptsFor_(u) });
       case 'attempt':  return out_({ ok: true, attempt: attemptDetail_(u, body.paperId) });
@@ -171,6 +175,16 @@ function listPapers_(includeHidden) {
   list.sort(function (a, b) { return (a.order - b.order) || String(a.created).localeCompare(String(b.created)); });
   return list.map(function (p) { var o = {}; for (var k in p) if (k !== 'fileId') o[k] = p[k]; return o; });
 }
+/* the students' paper list is kept in the script cache for 10 minutes (reading the sheet is the slow
+   part); any change made in the admin page clears it straight away */
+function activePapers_() {
+  var cache = CacheService.getScriptCache(), hit = cache.get('papers_active');
+  if (hit) { try { return JSON.parse(hit); } catch (e) {} }
+  var list = listPapers_(false);
+  try { cache.put('papers_active', JSON.stringify(list), 600); } catch (e) {}   // skipped if the list is ever over 100 KB
+  return list;
+}
+function clearPaperCache_() { try { CacheService.getScriptCache().remove('papers_active'); } catch (e) {} }
 function findPaperRow_(id) {
   var sh = sheet_('Papers', PAPER_COLS), data = rows_(sh);
   for (var i = 0; i < data.length; i++) if (String(data[i][0]) === String(id)) return { sh: sh, row: i + 2, obj: paperRowObj_(data[i]) };

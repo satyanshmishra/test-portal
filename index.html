@@ -19,7 +19,6 @@ window.MathJax = {
   startup: { typeset: false }
 };
 </script>
-<script src="assets/mathjax-tex-svg.js" async></script>
 </head>
 <body>
 
@@ -391,12 +390,17 @@ function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.to
 let toastT=null;
 function toast(msg,ms=3500){const t=$('toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),ms);}
 function busy(on,msg){ $('overlayMsg').textContent=msg||'Loading…'; $('overlay').classList.toggle('open',!!on); }
+/* MathJax (2 MB) is fetched only when maths has to be shown, or in the background once the
+   portal is open, so it never slows down login */
+let MJ_ASKED=false;
+function loadMathJax(){ if(MJ_ASKED) return; MJ_ASKED=true; const s=document.createElement('script'); s.src='assets/mathjax-tex-svg.js'; s.async=true; document.head.appendChild(s); }
 function typeset(el,tries=0){
+  loadMathJax();
   if(window.MathJax && MathJax.startup && MathJax.startup.promise && MathJax.typesetPromise){
     MathJax.startup.promise = MathJax.startup.promise
       .then(()=>{ if(MathJax.typesetClear) MathJax.typesetClear([el]); return MathJax.typesetPromise([el]); })
       .catch(()=>{});
-  } else if(tries<80){ setTimeout(()=>typeset(el,tries+1),250); }
+  } else if(tries<240){ setTimeout(()=>typeset(el,tries+1),250); }
 }
 function beforeUnload(e){e.preventDefault();e.returnValue='';return '';}
 
@@ -618,10 +622,27 @@ async function enter(session, log){
     authMsg(''); authView('vProfile'); show('login'); return;
   }
   busy(true,'Opening your tests…');
+  // everything starts at once: the test server (login check + attempts, paper list) and the account data
+  const pMe = api('me', {log: !!log}), pList = api('papers');
+  pMe.catch(()=>{}); pList.catch(()=>{});
+  const fresh = Promise.all([pMe, pList]).then(([me, pl]) => {
+    ATTEMPTS={}; (me.attempts||[]).forEach(a=>ATTEMPTS[a.paperId]=a);
+    PAPERS = pl.papers||[];
+    LS.set('stp_cache_papers', PAPERS); LS.set('stp_cache_att_'+USER.id, ATTEMPTS);
+  });
   try{
-    const r = await api('me', {log: !!log});
-    ATTEMPTS={}; (r.attempts||[]).forEach(a=>ATTEMPTS[a.paperId]=a);
-    await afterLogin();
+    if(window.cloudLoad) await cloudLoad();
+    const cP = LS.get('stp_cache_papers', null), cA = LS.get('stp_cache_att_'+USER.id, null);
+    if(Array.isArray(cP) && cP.length && cA){
+      // seen this device before: open at once with the saved list, then refresh it quietly
+      PAPERS = cP; ATTEMPTS = cA;
+      await afterLogin();
+      fresh.then(()=>{ mergePendingAttempts(); if($('papers').classList.contains('active')) renderPapers(); })
+           .catch(err=>{ if(err && err.auth) authFail(err); });
+    } else {
+      await fresh;
+      await afterLogin();
+    }
   }catch(err){
     if(err.auth) return authFail(err);
     busy(false); authView('vLogin'); show('login');
@@ -630,17 +651,16 @@ async function enter(session, log){
 }
 
 async function afterLogin(){
-  busy(true,'Loading your progress…');
-  if(window.cloudLoad) await cloudLoad();               // this account's saved work comes first, on every device
   mergePendingAttempts(); flushPending();
-  // resume an unfinished test after refresh / closing the tab
+  // resume an unfinished test after refresh / closing the tab (also one started on another device)
   const act = LS.get('stp_active', null);
   if(act && act.uid===USER.id){
     try{ await resumeActive(act); busy(false); return; }catch(e){ LS.del('stp_active'); }
   }
   VIEW={level:'home'};
-  await loadPapers();
+  busy(false); renderPapers(); show('papers');
   loadLiveHist();
+  setTimeout(loadMathJax, 1500);
   if(location.hash==='#results'){ history.replaceState(null,'',location.pathname); go({level:'results'}); }
 }
 
@@ -680,6 +700,7 @@ async function loadPapers(){
     const [pl, at] = await Promise.all([api('papers'), api('attempts').catch(e=>{ if(e.auth) throw e; return null; })]);
     PAPERS = pl.papers||[];
     if(at){ ATTEMPTS={}; (at.attempts||[]).forEach(a=>ATTEMPTS[a.paperId]=a); }
+    LS.set('stp_cache_papers', PAPERS); LS.set('stp_cache_att_'+USER.id, ATTEMPTS);
     mergePendingAttempts();
     $('paperMsg').innerHTML='';
   }catch(e){

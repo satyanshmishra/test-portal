@@ -192,3 +192,5 @@ html[data-theme="dark"]{color-scheme:dark;
 :where(html[data-theme="dark"]) .gs-qs-c{color:#f2b54a}
 :where(html[data-theme="dark"]) .gs-qs-c.all{color:#5fd08f}
 :where(html[data-theme="dark"]) .gs-qs-c.none{color:#f08a84}
+:where(html[data-theme="dark"]) .sq-star button.on{color:#ffcc3d}
+:where(html[data-theme="dark"]) .sf-st{color:#ffcc3d}

@@ -26,6 +26,10 @@ const pyqKey = () => 'stp_pyq_' + ((USER && USER.id) || 'x');
 let PYQ_PROG = null, PYQ_PROG_K = '';
 function pyqProg(){ if(!PYQ_PROG || PYQ_PROG_K !== pyqKey()){ PYQ_PROG_K = pyqKey(); PYQ_PROG = LS.get(PYQ_PROG_K, {}) || {}; } return PYQ_PROG; }
 function pyqSaveProg(){ LS.set(pyqKey(), PYQ_PROG || {}); }
+/* the student's own 1–3 star rating of a question (kept with the progress, key _star) */
+const pyqStar = id => ((pyqProg()._star || {})[id]) || 0;
+const STAR_TXT = { 1: '★ 1 star', 2: '★★ 2 stars', 3: '★★★ 3 stars' };
+function starOk(f, id){ const S = f.stars || []; if(!S.length) return true; const r = pyqStar(id); return S.indexOf(r ? String(r) : '0') >= 0; }
 
 async function pyqIndex(exam){
   if(exam in PYQ_IDX) return PYQ_IDX[exam];
@@ -94,7 +98,7 @@ $('papers').addEventListener('click', e => {
 }, true);
 
 /* ---------- filters ---------- */
-const PF_DEF = () => ({ units: [], subs: [], years: [], types: [], status: [], q: '', sort: 'new', per: 20, page: 0 });
+const PF_DEF = () => ({ units: [], subs: [], years: [], types: [], status: [], stars: [], q: '', sort: 'new', per: 20, page: 0 });
 const pfKey = (exam, mode) => 'stp_pyq_f_' + exam + '_' + mode;
 
 async function openPyq(exam, mode){
@@ -139,6 +143,7 @@ function pyqFiltered(){
       if(yrs.size && !yrs.has(Number(q.yr))) return;
       if(types.size && !types.has(q.type)) return;
       if(st.size){ const r = P[q.id]; const s = !r ? 'new' : (r.ok ? 'ok' : 'bad'); if(!st.has(s)) return; }
+      if(!starOk(f, q.id)) return;
       if(words.length){ const t = (q.q + ' ' + (q.opts || []).join(' ')).toLowerCase(); if(!words.every(w => t.indexOf(w) >= 0)) return; }
       out.push(q);
     });
@@ -218,6 +223,11 @@ function renderPyqSide(){
       <label class="ck"><input type="checkbox" data-st="bad"><span>Got wrong</span></label>
       <label class="ck"><input type="checkbox" data-st="ok"><span>Solved correctly</span></label>
     </details>
+    <details class="ps-sec" open><summary>My stars ⭐</summary>
+      ${[3, 2, 1].map(k => `<label class="ck"><input type="checkbox" data-sf="${k}"><span class="sf-st">${'★'.repeat(k)}<i>${'★'.repeat(3 - k)}</i></span><span>${k} star${k > 1 ? 's' : ''}</span><span class="pc" data-sfc="${k}"></span></label>`).join('')}
+      <label class="ck"><input type="checkbox" data-sf="0"><span>No star yet</span></label>
+      <p class="ps-tip">Tap ☆ on any question to give it 1, 2 or 3 stars and build your own set.</p>
+    </details>
     <div class="ps-foot"><button type="button" class="btn green" data-pf="close">Show questions</button></div>`;
   paintSide();
 }
@@ -237,6 +247,9 @@ function paintSide(){
   side.querySelectorAll('[data-yr]').forEach(b => b.classList.toggle('on', f.years.indexOf(Number(b.dataset.yr)) >= 0));
   side.querySelectorAll('[data-type]').forEach(cb => cb.checked = f.types.indexOf(cb.dataset.type) >= 0);
   side.querySelectorAll('[data-st]').forEach(cb => cb.checked = f.status.indexOf(cb.dataset.st) >= 0);
+  f.stars = f.stars || [];
+  side.querySelectorAll('[data-sf]').forEach(cb => cb.checked = f.stars.indexOf(cb.dataset.sf) >= 0);
+  pyqPaintStarCounts();
   const yrs = (PQ.idx.years || []).slice().sort((a, b) => b - a);
   side.querySelectorAll('[data-qy]').forEach(b => {
     const set = quickYears(b.dataset.qy, yrs);
@@ -266,6 +279,7 @@ function paintSideCounts(){
       if(yrs.size && !yrs.has(Number(q.yr))) return;
       if(types.size && !types.has(q.type)) return;
       if(st.size){ const r = P[q.id]; if(!st.has(!r ? 'new' : (r.ok ? 'ok' : 'bad'))) return; }
+      if(!starOk(f, q.id)) return;
       n++;
     });
     el.textContent = n;
@@ -288,6 +302,7 @@ $('pyqSide').addEventListener('change', e => {
     if(mine.length === all.length){ f.subs = f.subs.filter(s => s.split('|')[0] !== u); f.units.push(u); }
   } else if(t.dataset.type) toggleIn(f.types, t.dataset.type);
   else if(t.dataset.st) toggleIn(f.status, t.dataset.st);
+  else if(t.dataset.sf){ f.stars = f.stars || []; toggleIn(f.stars, t.dataset.sf); }
   else return;
   paintSide(); applyPyq();
 });
@@ -331,6 +346,7 @@ function chipsHTML(){
   if(f.years.length) out.push(['years', f.years.length <= 4 ? f.years.slice().sort().join(', ') : f.years.length + ' years']);
   f.types.forEach(t => out.push([`type:${t}`, PYQ_TYPES[t] || t]));
   f.status.forEach(s => out.push([`st:${s}`, { new: 'Not attempted', bad: 'Got wrong', ok: 'Solved' }[s]]));
+  (f.stars || []).forEach(k => out.push([`sf:${k}`, STAR_TXT[k] || 'No star']));
   if(f.q.trim()) out.push(['q', '“' + f.q.trim() + '”']);
   return out.map(([k, t]) => `<button type="button" class="fchip" data-rm="${esc(k)}">${esc(t)} <span>✕</span></button>`).join('');
 }
@@ -379,6 +395,7 @@ $('pyqHead').addEventListener('click', e => {
   else if(k === 'years') f.years = [];
   else if(k.startsWith('type:')) f.types = f.types.filter(x => x !== k.slice(5));
   else if(k.startsWith('st:')) f.status = f.status.filter(x => x !== k.slice(3));
+  else if(k.startsWith('sf:')) f.stars = (f.stars || []).filter(x => x !== k.slice(3));
   else if(k === 'q'){ f.q = ''; const i = $('pfQ'); if(i) i.value = ''; }
   paintSide(); applyPyq();
 });
@@ -409,7 +426,7 @@ function renderPyqList(){
            <button type="button" class="btn sq-check">Check</button></div>`;
     html += `<article class="card sq pq" id="pq_${esc(q.id)}" data-id="${esc(q.id)}">
       <div class="sq-head"><span class="sq-no">Q${s + j + 1}</span><span class="pill">${PYQ_TYPES[q.type] || ''}</span>
-        ${pyqShowSrc() && srcText(q) ? `<span class="pill src">${esc(srcText(q))}</span>` : ''}<span class="sq-time" hidden></span><span class="sq-badge"></span></div>
+        ${pyqShowSrc() && srcText(q) ? `<span class="pill src">${esc(srcText(q))}</span>` : ''}<span class="sq-time" hidden></span><span class="sq-badge"></span><span class="sq-star" role="group" aria-label="My stars">${[1, 2, 3].map(k => `<button type="button" data-star="${k}" aria-label="${k} star${k > 1 ? 's' : ''}">☆</button>`).join('')}</span></div>
       <div class="q-text">${q.q}</div>
       ${body}
       <div class="sq-fb" aria-live="polite"></div>
@@ -489,6 +506,21 @@ function paintPq(q){
   sb.hidden = hideSol;                                   // no peeking before the answers are shown
   if(hideSol && el.classList.contains('sol-open')){ el.classList.remove('sol-open'); sb.innerHTML = '📘 View Solution'; }
   ptPaintQTime(q.id);
+  pyqPaintStar(q.id);
+}
+function pyqPaintStar(id){
+  const el = $('pq_' + id); if(!el) return;
+  const r = pyqStar(id), box = el.querySelector('.sq-star'); if(!box) return;
+  box.classList.toggle('has', !!r);
+  box.querySelectorAll('[data-star]').forEach(b => { const on = +b.dataset.star <= r; b.textContent = on ? '★' : '☆'; b.classList.toggle('on', on); });
+  box.title = r ? `${r} star${r > 1 ? 's' : ''} — tap the same star again to remove` : 'Give this question 1, 2 or 3 stars';
+}
+function pyqPaintStarCounts(){
+  const S = pyqProg()._star || {}, ids = new Set();
+  if(PQ) Object.keys(PYQ_UNITS).forEach(k => { if(k.indexOf(PQ.exam + ':') === 0) PYQ_UNITS[k].questions.forEach(q => ids.add(q.id)); });
+  const c = { 1: 0, 2: 0, 3: 0 };
+  Object.keys(S).forEach(id => { if(c[S[id]] !== undefined && (!ids.size || ids.has(id))) c[S[id]]++; });
+  document.querySelectorAll('[data-sfc]').forEach(el => el.textContent = c[el.dataset.sfc] || '');
 }
 function answerPq(q, a, x, y){
   const P = pyqProg(); if(P[q.id]) return;
@@ -515,6 +547,15 @@ function answerPq(q, a, x, y){
 }
 $('pyqList').addEventListener('click', e => {
   if(!PQ) return;
+  const stb = e.target.closest('[data-star]');
+  if(stb){
+    const id = stb.closest('.pq').dataset.id, k = +stb.dataset.star, P = pyqProg();
+    P._star = P._star || {};
+    if(P._star[id] === k) delete P._star[id]; else P._star[id] = k;
+    pyqSaveProg(); pyqPaintStar(id); pyqPaintStarCounts();
+    if(P._star[id]) toast(`${'★'.repeat(k)} Saved to your ${k}-star set`, 1800);
+    return;
+  }
   const rb = e.target.closest('[data-ptshow]');
   if(rb){ ptReveal(+rb.dataset.ptshow); return; }
   const jq = e.target.closest('[data-ptjump]');

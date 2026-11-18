@@ -2,16 +2,16 @@
  "exam": "JEE Advanced",
  "prefix": "A",
  "types": {
-  "mcq": 353,
-  "multi": 77,
-  "sub": 188,
-  "tf": 19,
-  "fill": 69,
-  "match": 9,
-  "num": 96
+  "mcq": 398,
+  "multi": 111,
+  "sub": 222,
+  "tf": 20,
+  "fill": 83,
+  "match": 12,
+  "num": 105
  },
- "version": "4e7113a6b8",
- "total": 811,
+ "version": "e5e550293c",
+ "total": 951,
  "years": [
   1978,
   1979,
@@ -383,6 +383,36 @@
      "id": "12.3",
      "title": "Equations with Inverse Trigonometric Functions",
      "n": 9
+    }
+   ],
+   "mrq": []
+  },
+  {
+   "id": "13",
+   "title": "Limits, Continuity and Differentiability",
+   "file": "13_limits_continuity_and_differentiability.json",
+   "n": 140,
+   "nMrq": 0,
+   "subs": [
+    {
+     "id": "13.1",
+     "title": "Limits",
+     "n": 49
+    },
+    {
+     "id": "13.2",
+     "title": "Continuity",
+     "n": 22
+    },
+    {
+     "id": "13.3",
+     "title": "Differentiability",
+     "n": 46
+    },
+    {
+     "id": "13.4",
+     "title": "Functional Equations and Mixed Problems",
+     "n": 23
     }
    ],
    "mrq": []

@@ -2,16 +2,16 @@
  "exam": "JEE Advanced",
  "prefix": "A",
  "types": {
-  "mcq": 415,
-  "multi": 112,
-  "sub": 248,
-  "tf": 21,
-  "fill": 91,
-  "match": 12,
-  "num": 106
+  "mcq": 460,
+  "multi": 125,
+  "sub": 279,
+  "tf": 22,
+  "fill": 101,
+  "match": 14,
+  "num": 124
  },
- "version": "a63cdd34b1",
- "total": 1005,
+ "version": "706886fe34",
+ "total": 1125,
  "years": [
   1978,
   1979,
@@ -463,6 +463,36 @@
      "id": "15.3",
      "title": "Partial Fractions, Algebraic and Special Forms",
      "n": 8
+    }
+   ],
+   "mrq": []
+  },
+  {
+   "id": "16",
+   "title": "Definite Integrals",
+   "file": "16_definite_integrals.json",
+   "n": 120,
+   "nMrq": 0,
+   "subs": [
+    {
+     "id": "16.1",
+     "title": "Properties of Definite Integrals",
+     "n": 43
+    },
+    {
+     "id": "16.2",
+     "title": "Evaluation of Definite Integrals",
+     "n": 35
+    },
+    {
+     "id": "16.3",
+     "title": "Leibniz Rule, Integral Functions and Inequalities",
+     "n": 30
+    },
+    {
+     "id": "16.4",
+     "title": "Limit of a Sum and Reduction Formulae",
+     "n": 12
     }
    ],
    "mrq": []

@@ -37,8 +37,7 @@
       if (bars[i].querySelector('.theme-btn')) continue;
       var tb = bars[i].querySelector('.timer-box');
       if (tb) { tb.insertAdjacentElement('afterend', mk('in-bar')); continue; }   // exam: right next to the clock
-      var host = bars[i].querySelector('.user-box') || bars[i].querySelector('.pyq-tb-btns') || bars[i];
-      host.appendChild(mk('in-bar'));
+      bars[i].appendChild(mk('in-bar'));        // last item of the bar; on phones it sits at the top-right, level with the heading
     }
     if (!document.querySelector('.theme-btn.floating')) document.body.appendChild(mk('floating'));
     apply(root.getAttribute('data-theme'));

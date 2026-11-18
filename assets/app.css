@@ -701,3 +701,19 @@ body:has(.screen.active > .topbar) .theme-btn.floating{display:none}
   #group:has(.gs-stat:not(.min):not([hidden])) .gs-wrap{padding-bottom:50vh}
 }
 .gs-lobby .gs-note{margin:14px 0}
+
+/* ---------- top bars on phones: theme switch level with the heading, buttons on their own row ---------- */
+.topbar-in{position:relative}
+.topbar-in:has(> .theme-btn){justify-content:flex-start}
+.topbar-in:has(> .theme-btn) > .tb-left{margin-right:auto}
+@media (max-width:700px){
+  .topbar-in > .theme-btn,.tb-right > .theme-btn{position:absolute;top:10px;right:12px;width:34px;height:34px;font-size:16px}
+  .topbar-in:has(.tb-right > .theme-btn) .tb-left{padding-right:46px}
+  .topbar-in:has(> .theme-btn) .tb-left{padding-right:46px;min-width:0}
+  #papers .user-box{flex-wrap:wrap;width:100%;gap:10px}
+  #papers .user-box > div:nth-child(2){flex:1 1 calc(100% - 52px);min-width:0}
+  #papers .user-box .ph{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #papers .user-box .btn{flex:1 1 0;white-space:nowrap;padding:8px 4px;font-size:13px;text-align:center;min-width:0}
+  #papers .user-box{gap:8px}
+  .pyq-tb-btns .btn,.user-box .btn{white-space:nowrap}
+}

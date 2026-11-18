@@ -4,7 +4,8 @@
    • The host picks a Practice Sheet, a Test Paper or a PYQ set, the timer and
      when answers are shown, then starts. Everyone gets the same sheet.
    • Microphone must stay ON (only checked, never recorded or sent anywhere).
-   • Leaving the tab / app is a tab switch: 3 lives, then the sheet is submitted.
+   • Leaving the screen costs a life: another tab, another app, minimising the browser,
+     locking the phone or closing/reloading the page. 3 lives, then the sheet is submitted.
    • Bottom-right status box: each member's "N answered", lives, mic, finished.
    • After the session: everyone's marks and a question-by-question summary
      (who got it right / wrong and how long each person took).
@@ -86,7 +87,7 @@ async function openGroupStudy(){
       <div class="card gs-card">
         <h2>➕ Host a new group</h2>
         <p class="gs-sub">Choose the sheet, set the timer and share the code with your friends.</p>
-        <ul class="gs-rules"><li>🎤 Microphone must stay on for everyone</li><li>❤️ ${GS_LIVES} lives — leaving the tab costs one</li><li>📊 Everyone sees everyone's result at the end</li></ul>
+        <ul class="gs-rules"><li>🎤 Microphone must stay on for everyone</li><li>❤️ ${GS_LIVES} lives — leaving the screen (tab, app, minimise) costs one</li><li>📊 Everyone sees everyone's result at the end</li></ul>
         <button type="button" class="btn gs-wide" id="gsNewBtn">Create Group</button>
       </div>
     </div>
@@ -222,8 +223,12 @@ async function gsEnter(id){
     if(mine && mine.data && mine.data.ans && !Object.keys(me.ans).length){ me.ans = mine.data.ans; me.t = mine.data.t || {}; }
     if(mine){ me.tabs = Math.max(me.tabs, mine.tabs || 0); if(mine.done){ me.done = true; me.why = me.why || mine.why; } }
     GS = { id, st, Q, me, v: -1, view: '', sel: {}, cur: -1, lastT: 0, lastPush: 0, pushT: 0, armT: 0, endTap: 0, subTap: 0 };
+    gsToken();
+    // page closed / reloaded mid-session: counts as leaving, unless that leaving was already counted as it closed
+    const reopened = st.status === 'running' && !me.done && me.inRun && !(me.lastSw && me.closedAt && me.closedAt - me.lastSw < 1500);
     LS.set('stp_gs', { id });
-    busy(false); show('group'); gsRender(); gsStartPoll(); gsPush(true);
+    busy(false); show('group'); gsRender(); gsStartPoll();
+    if(reopened && GS.view === 'run'){ GS_LAST_SW = 0; GSM.ignoreBlurUntil = 0; gsTabSwitch('reopen'); } else gsPush(true);
   }catch(e){ busy(false); if(e.auth) return authFail(e); toast(e.message || 'Could not open the group.', 5000); }
 }
 async function gsLoadQs(src){
@@ -281,6 +286,7 @@ async function gsPoll(){
   try{
     const st = await gsRpc('gs_state', { p_group: GS.id });
     if(!GS || st.id !== GS.id) return;
+    if(Math.random() < 0.1) gsToken();
     GS_OFF = new Date(st.now).getTime() - Date.now();
     const was = GS.st.status; GS.st = st;
     const mine = (st.members || []).find(m => m.me);
@@ -311,12 +317,12 @@ function gsLobby(){
       <span class="paper-tag">GROUP STUDY · ${st.is_host ? 'YOU ARE THE HOST' : 'HOST: ' + esc(st.host_name).toUpperCase()}</span>
       <h1>${esc(st.title)}</h1>
       <div class="gs-codebox"><small>Group code</small><b>${esc(st.code)}</b><button type="button" class="btn small light" id="gsCopy">📋 Copy</button></div>
-      <div class="gs-facts"><div><b>${st.n}</b><span>Questions</span></div><div><b>${lim}</b><span>Time</span></div><div><b>${st.settings.reveal === 'now' ? 'Immediately' : 'At the end'}</b><span>Answers shown</span></div><div><b>${GS_LIVES} ❤️</b><span>Tab-switch lives</span></div></div>
+      <div class="gs-facts"><div><b>${st.n}</b><span>Questions</span></div><div><b>${lim}</b><span>Time</span></div><div><b>${st.settings.reveal === 'now' ? 'Immediately' : 'At the end'}</b><span>Answers shown</span></div><div><b>${GS_LIVES} ❤️</b><span>Lives</span></div></div>
       <div class="gs-microw ${micOk ? 'ok' : 'bad'}">${micOk ? '🎤 Your microphone is on <span class="gs-meter"><i id="gsMeter"></i></span>' : '🔇 Your microphone is off'}
         ${micOk ? '' : '<button type="button" class="btn small green" data-gsmic="1">Turn on mic</button>'}</div>
       <h3>In the group (${ms.length})</h3>
       <div class="gs-mlist">${ms.map(m => `<div class="gs-m${m.away ? ' away' : ''}"><span class="gs-av">${esc((m.name || '?')[0].toUpperCase())}</span><b>${esc(m.name)}${m.me ? ' (you)' : ''}</b>${m.host ? '<i class="gs-host">host</i>' : ''}${micIcon(m.me ? gsMic() : m.mic)}</div>`).join('')}</div>
-      <p class="gs-note">Rules: keep your microphone on, stay on this tab (each switch costs a life; after ${GS_LIVES} your sheet is submitted), and finish before the time ends. The microphone is only checked — your voice is not recorded or sent.</p>
+      <p class="gs-note">Rules: keep your microphone on, stay on this screen — switching tab or app, minimising the browser, locking the phone or closing the page each costs a life; after ${GS_LIVES} your sheet is submitted, and finish before the time ends. The microphone is only checked — your voice is not recorded or sent.</p>
       <div class="gs-actions">
         <button type="button" class="btn light" id="gsLeave">${st.is_host ? 'Close group' : 'Leave group'}</button>
         ${st.is_host ? `<button type="button" class="btn green" id="gsStart"${micOk && !noMic.length && ms.length > 1 ? '' : ' disabled'}>▶ Start for everyone</button>` : '<span class="gs-wait">⏳ Waiting for the host to start…</span>'}
@@ -364,6 +370,7 @@ function gsRun(){
     <div class="gs-guard" id="gsGuard" hidden></div>
     <div class="gs-count" id="gsCount" hidden></div>`;
   GS.Q.forEach((q, i) => gsPaintQ(i));
+  GS.me.inRun = true; gsSaveMe();
   typeset($('gsQs'));
   window.scrollTo(0, 0);
   $('gsStat').hidden = false;
@@ -416,8 +423,8 @@ function gsPaintStat(){
     return `<div class="gst-m${m.me ? ' me' : ''}${m.away && !m.me ? ' away' : ''}">
       <div class="gst-top"><span class="gs-av">${esc((m.name || '?')[0].toUpperCase())}</span><b>${esc(m.name)}${m.me ? ' (you)' : ''}</b>${micIcon(mic)}</div>
       <div class="gst-bar"><i style="width:${n ? ans / n * 100 : 0}%"></i></div>
-      <div class="gst-txt"><span><b>${ans}</b>/${n} answered</span><span class="gst-lv" title="${tabs} tab switch${tabs === 1 ? '' : 'es'}">${'❤️'.repeat(lives)}${'🤍'.repeat(GS_LIVES - lives)}</span></div>
-      ${tabs ? `<div class="gst-warn">⚠️ ${tabs} tab switch${tabs > 1 ? 'es' : ''}</div>` : ''}
+      <div class="gst-txt"><span><b>${ans}</b>/${n} answered</span><span class="gst-lv" title="Left the screen ${tabs} time${tabs === 1 ? '' : 's'}">${'❤️'.repeat(lives)}${'🤍'.repeat(GS_LIVES - lives)}</span></div>
+      ${tabs ? `<div class="gst-warn">⚠️ Left the screen ${tabs}×</div>` : ''}
       ${m.done ? `<div class="gst-done">✓ ${why}</div>` : (m.away && !m.me ? '<div class="gst-away">● not responding</div>' : '')}
     </div>`;
   }).join('');
@@ -510,23 +517,39 @@ function gsSubmit(why){
   gsResults();
 }
 
-/* ---------------- tab switches ---------------- */
+/* ---------------- leaving the screen ---------------- */
+/* the page may be frozen right after it is hidden (phone home button, minimised browser),
+   so the update goes out as a keep-alive request that the browser finishes on its own */
+function gsBeacon(){
+  if(!GS) return;
+  const me = GS.me, body = JSON.stringify({ p_group: GS.id, p: { answered: gsAnsweredN(), tabs: me.tabs, mic: gsMic(), cur: GS.cur >= 0 ? GS.cur : null,
+    total_ms: Math.round(me.total), data: { ans: me.ans, t: me.t, log: me.log.slice(-30) }, done: !!me.done, why: me.why } });
+  GS.lastPush = Date.now();
+  if(!GS.tok || !CFG.SUPABASE_URL){ gsPush(true); return; }
+  try{
+    fetch(CFG.SUPABASE_URL.replace(/\/$/, '') + '/rest/v1/rpc/gs_update', { method: 'POST', keepalive: true,
+      headers: { 'Content-Type': 'application/json', apikey: CFG.SUPABASE_KEY, Authorization: 'Bearer ' + GS.tok }, body }).catch(() => gsPush(true));
+  }catch(e){ gsPush(true); }
+}
+async function gsToken(){ try{ const s = (await SB.auth.getSession()).data.session; if(GS && s) GS.tok = s.access_token; }catch(e){} }
 let GS_LAST_SW = 0;
 function gsTabSwitch(kind){
   if(!GS || GS.view !== 'run' || GS.me.done) return;
   if(gsNow() < new Date(GS.st.started_at).getTime()) return;
   const t = Date.now();
   if(t < GSM.ignoreBlurUntil || t - GS_LAST_SW < 2500) return;       // one switch is often both blur + hidden
-  GS_LAST_SW = t;
+  GS_LAST_SW = t; GS.me.lastSw = t;
   GS.me.tabs++; GS.me.log.push({ at: new Date(gsNow()).toISOString(), k: kind, q: GS.cur });
-  gsSaveMe(); gsPush(true); gsPaintStat(); gsPaintLives();
+  gsSaveMe(); gsBeacon(); gsPaintStat(); gsPaintLives();
   const left = GS_LIVES - GS.me.tabs;
   if(left <= 0){ gsSubmit('lives'); return; }
-  setTimeout(() => toast(`⚠️ Tab switch detected! ${left} li${left === 1 ? 'fe' : 'ves'} left. Everyone in the group can see it.`, 6000), 300);
+  setTimeout(() => toast(`⚠️ You left the screen! ${left} li${left === 1 ? 'fe' : 'ves'} left. Everyone in the group can see it.`, 6000), 300);
 }
-document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'hidden') gsTabSwitch('hidden'); else if(GS && GS.view === 'run'){ gsPaintMicGuard(); gsPush(); } });
+// hidden: another tab, another app, home button, minimised browser, locked screen
+document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'hidden') gsTabSwitch('hidden'); else if(GS && GS.view === 'run'){ gsPaintMicGuard(); gsPush(true); } });
+// blur while still visible: another window or app in front (PC), split screen (tablet)
 window.addEventListener('blur', () => { setTimeout(() => { if(document.visibilityState === 'visible' && !document.hasFocus()) gsTabSwitch('blur'); }, 400); });
-window.addEventListener('pagehide', () => { if(GS && GS.view === 'run') { gsSaveMe(); gsPush(true); } });
+window.addEventListener('pagehide', () => { if(GS && GS.view === 'run') { GS.me.closedAt = Date.now(); gsSaveMe(); gsBeacon(); } });
 
 /* ---------------- results ---------------- */
 function gsMemberAns(m){
@@ -559,7 +582,7 @@ function gsResults(){
       <p class="gs-note">Everyone's marks and the question-by-question summary appear here when the session ends.</p></div>`;
     $('gsMain').innerHTML = h; return;
   }
-  h += `<div class="card gs-board"><h2>🏆 Marks</h2><div class="tbl-wrap"><table class="tbl gs-tbl"><thead><tr><th>#</th><th>Name</th><th>Marks</th><th>✓ Correct</th><th>✗ Wrong</th><th>Not attempted</th><th>Time</th><th>Tab switches</th><th>Finished</th></tr></thead><tbody>
+  h += `<div class="card gs-board"><h2>🏆 Marks</h2><div class="tbl-wrap"><table class="tbl gs-tbl"><thead><tr><th>#</th><th>Name</th><th>Marks</th><th>✓ Correct</th><th>✗ Wrong</th><th>Not attempted</th><th>Time</th><th>Left screen</th><th>Finished</th></tr></thead><tbody>
     ${rank.map((x, k) => `<tr class="${x.m.me ? 'me' : ''}"><td>${['🥇', '🥈', '🥉'][k] || k + 1}</td><td><b>${esc(x.m.name)}</b>${x.m.me ? ' (you)' : ''}</td><td><b>${x.score}</b>/${maxS}</td><td class="g">${x.c}</td><td class="r">${x.w}</td><td>${x.u}</td><td>${fmt(x.tot)}</td><td>${x.tabs ? '⚠️ ' + x.tabs : '0'}</td><td>${why(x.m.why)}</td></tr>`).join('')}
     </tbody></table></div><p class="gs-note">Marks: +${Q[0] ? Q[0].pos : 4} for a correct answer${Q.some(q => q.neg) ? ', negative marks as in the exam for a wrong one' : ''}, 0 if not attempted.</p></div>`;
   h += `<h2 class="gs-h2">📋 Question by question</h2><div class="gs-qsum">`;

@@ -2,16 +2,16 @@
  "exam": "JEE Advanced",
  "prefix": "A",
  "types": {
-  "mcq": 255,
-  "multi": 47,
-  "sub": 142,
-  "tf": 15,
-  "fill": 50,
+  "mcq": 295,
+  "multi": 67,
+  "sub": 161,
+  "tf": 17,
+  "fill": 56,
   "match": 7,
-  "num": 64
+  "num": 78
  },
- "version": "c2a4ffa22c",
- "total": 580,
+ "version": "1fe00ac05d",
+ "total": 681,
  "years": [
   1978,
   1979,
@@ -258,6 +258,36 @@
      "id": "7.4",
      "title": "Repeated Trials, Binomial Distribution and Random Variables",
      "n": 23
+    }
+   ],
+   "mrq": []
+  },
+  {
+   "id": "8",
+   "title": "Matrices and Determinants",
+   "file": "08_matrices_and_determinants.json",
+   "n": 101,
+   "nMrq": 0,
+   "subs": [
+    {
+     "id": "8.1",
+     "title": "Determinants: Evaluation and Properties",
+     "n": 43
+    },
+    {
+     "id": "8.2",
+     "title": "Matrices: Algebra, Transpose and Special Matrices",
+     "n": 24
+    },
+    {
+     "id": "8.3",
+     "title": "Adjoint and Inverse of a Matrix",
+     "n": 9
+    },
+    {
+     "id": "8.4",
+     "title": "System of Linear Equations",
+     "n": 25
     }
    ],
    "mrq": []

@@ -758,8 +758,12 @@ function renderPapers(){
   if(!all.length){ grid.innerHTML=`<div class="card empty" style="grid-column:1/-1">No ${f.practice?'sheets':'papers'} in this folder yet. New ${f.practice?'sheets':'papers'} will appear here soon.</div>`; return; }
   if(VIEW.group) list=list.slice().sort((a,b)=>natCmp(splitName(a.name).t, splitName(b.name).t));
   grid.classList.toggle('folder-grid', !!groupCards && !list.length);
-  if(f.practice){ grid.innerHTML = groupCards + list.map((p,k)=>sheetCard(p,k)).join(''); return; }
-  grid.innerHTML = groupCards + list.map((p,k)=>{
+  if(f.practice){ let ns=0; grid.innerHTML = groupCards + list.map(p=>isTimed(p)?paperCard(p,ns++):sheetCard(p,ns++)).join(''); return; }
+  grid.innerHTML = groupCards + list.map((p,k)=>paperCard(p,k)).join('');
+}
+/* a timed test kept inside a practice folder (exam field says "Timed Test") */
+const isTimed = p => /timed test/i.test(String(p.exam||''));
+function paperCard(p,k){
     const a = ATTEMPTS[p.id];
     const foot = a
       ? `<span class="done-pill">✓ Attempted${a.score!==undefined&&a.score!==null&&a.score!==''?` · ${a.score}/${a.maxMarks}`:''}</span>
@@ -773,7 +777,6 @@ function renderPapers(){
       <div class="meta">${[p.exam,p.subject].filter(Boolean).map(x=>`<span>${esc(x)}</span>`).join('')}
         <span>${p.questions} Questions</span><span>${p.durationMin} min</span><span>${p.maxMarks} Marks</span></div>
       <div class="foot">${foot}</div></div>`;
-  }).join('');
 }
 function fmtWhen(t){
   if(!t) return '';
@@ -1354,7 +1357,7 @@ const sheetKey = id => 'stp_sheet_' + ((USER && USER.id) || 'x') + '_' + id;
 function sheetSaved(id){ const s = LS.get(sheetKey(id), null); return (s && Array.isArray(s.st)) ? s : null; }
 const isRv = x => !!x && x.rv !== false;                 // answer is shown (old saves had no rv = shown)
 const solvedIn = s => s ? s.st.filter(x => isRv(x) && x.ok).length : 0;
-function sheetsDone(list){ return list.filter(p => { const n = Number(p.questions) || 0; return n && solvedIn(sheetSaved(p.id)) >= n; }).length; }
+function sheetsDone(list){ return list.filter(p => { if(isTimed(p)) return !!ATTEMPTS[p.id]; const n = Number(p.questions) || 0; return n && solvedIn(sheetSaved(p.id)) >= n; }).length; }
 function sheetCard(p, k){
   const n = Number(p.questions) || 0, sv = sheetSaved(p.id), done = solvedIn(sv), began = !!(sv && sv.st.some(Boolean));
   const pct = n ? Math.round(done / n * 100) : 0;

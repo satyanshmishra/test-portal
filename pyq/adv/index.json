@@ -2,16 +2,16 @@
  "exam": "JEE Advanced",
  "prefix": "A",
  "types": {
-  "mcq": 527,
-  "multi": 156,
-  "sub": 340,
+  "mcq": 542,
+  "multi": 168,
+  "sub": 348,
   "tf": 24,
-  "fill": 106,
-  "match": 14,
-  "num": 144
+  "fill": 107,
+  "match": 15,
+  "num": 151
  },
- "version": "92a472c92c",
- "total": 1311,
+ "version": "f714b8afe3",
+ "total": 1355,
  "years": [
   1978,
   1979,
@@ -523,6 +523,36 @@
      "id": "17.4",
      "title": "Area Bounded by Curves",
      "n": 56
+    }
+   ],
+   "mrq": []
+  },
+  {
+   "id": "18",
+   "title": "Differential Equations",
+   "file": "18_differential_equations.json",
+   "n": 44,
+   "nMrq": 0,
+   "subs": [
+    {
+     "id": "18.1",
+     "title": "Formation, Order and Degree",
+     "n": 8
+    },
+    {
+     "id": "18.2",
+     "title": "Variable Separable and Homogeneous Equations",
+     "n": 12
+    },
+    {
+     "id": "18.3",
+     "title": "Linear and Exact Differential Equations",
+     "n": 17
+    },
+    {
+     "id": "18.4",
+     "title": "Applications of Differential Equations",
+     "n": 7
     }
    ],
    "mrq": []

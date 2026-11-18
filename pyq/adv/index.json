@@ -2,16 +2,16 @@
  "exam": "JEE Advanced",
  "prefix": "A",
  "types": {
-  "mcq": 129,
-  "multi": 25,
-  "sub": 62,
-  "tf": 11,
-  "fill": 21,
-  "match": 5,
-  "num": 19
+  "mcq": 194,
+  "multi": 32,
+  "sub": 109,
+  "tf": 13,
+  "fill": 39,
+  "match": 7,
+  "num": 49
  },
- "version": "a8e5afbe46",
- "total": 272,
+ "version": "f00144d37d",
+ "total": 443,
  "years": [
   1978,
   1979,
@@ -143,6 +143,91 @@
      "id": "3.3",
      "title": "Geometry of Complex Numbers and Loci",
      "n": 41
+    }
+   ],
+   "mrq": []
+  },
+  {
+   "id": "4",
+   "title": "Sequence and Series",
+   "file": "04_sequence_and_series.json",
+   "n": 78,
+   "nMrq": 0,
+   "subs": [
+    {
+     "id": "4.1",
+     "title": "Arithmetic Progression",
+     "n": 26
+    },
+    {
+     "id": "4.2",
+     "title": "Geometric Progression",
+     "n": 19
+    },
+    {
+     "id": "4.3",
+     "title": "Harmonic Progression, Means and Inequalities",
+     "n": 25
+    },
+    {
+     "id": "4.4",
+     "title": "Summation of Series",
+     "n": 8
+    }
+   ],
+   "mrq": []
+  },
+  {
+   "id": "5",
+   "title": "Binomial Theorem",
+   "file": "05_binomial_theorem.json",
+   "n": 33,
+   "nMrq": 0,
+   "subs": [
+    {
+     "id": "5.1",
+     "title": "General Term and Coefficients",
+     "n": 14
+    },
+    {
+     "id": "5.2",
+     "title": "Properties of Binomial Coefficients",
+     "n": 16
+    },
+    {
+     "id": "5.3",
+     "title": "Inequalities, Integral and Fractional Parts",
+     "n": 3
+    }
+   ],
+   "mrq": []
+  },
+  {
+   "id": "6",
+   "title": "Permutations and Combinations",
+   "file": "06_permutations_and_combinations.json",
+   "n": 60,
+   "nMrq": 0,
+   "subs": [
+    {
+     "id": "6.1",
+     "title": "Permutations and Arrangements",
+     "n": 15
+    },
+    {
+     "id": "6.2",
+     "title": "Combinations and Selections",
+     "n": 14
+    },
+    {
+     "id": "6.3",
+     "title": "Distribution, Grouping and Derangements",
+     "n": 11
+    },
+    {
+     "id": "6.4",
+     "title": "Identities and Miscellaneous Counting",
+     "n": 20
     }
    ],
    "mrq": []

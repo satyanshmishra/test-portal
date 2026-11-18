@@ -415,7 +415,7 @@ function renderPyqList(){
         <div class="st">${q.sol || '<i>Solution not provided.</i>'}</div>
         ${PYQ_SELF[q.type] ? (q.ans ? `<p class="sq-ansline">Answer: <b>${q.ans}</b></p>` : '')
           : `<p class="sq-ansline">Answer: <b>${esc(q.bonus ? 'Bonus' : q.type === 'mcq' ? [q.ans].concat(q.alt || []).map(k => '(' + LET[Number(k)] + ')').join(' or ')
-              : q.type === 'multi' ? q.ans.map(k => '(' + LET[Number(k)] + ')').join(', ') : q.type === 'tf' ? (q.ans ? 'False' : 'True') : String(q.ans))}</b></p>`}
+              : q.type === 'multi' ? q.ans.map(k => '(' + LET[Number(k)] + ')').join(', ') : q.type === 'tf' ? (q.ans ? 'False' : 'True') : [q.ans].concat(q.alt || []).join(' or '))}</b></p>`}
         <p class="pq-src">${esc([srcText(q), U.title, sub ? sub.title : ''].filter(Boolean).join(' · '))}</p>
       </div></div></div>
     </article>`;
@@ -476,7 +476,7 @@ function answerPq(q, a, x, y){
   else if(PYQ_SELF[q.type]) ok = a === 'ok';
   else if(q.type === 'multi') ok = a.length === q.ans.length && a.every((k, i) => k === q.ans[i]);
   else if(pyqOptType(q.type)) ok = Number(a) === Number(q.ans) || (q.alt || []).indexOf(Number(a)) >= 0;
-  else ok = Math.abs(parseFloat(a) - Number(q.ans)) <= (q.tol != null ? Number(q.tol) : 0.001) + 1e-9;
+  else ok = [q.ans].concat(q.alt || []).some(v => Math.abs(parseFloat(a) - Number(v)) <= (q.tol != null ? Number(q.tol) : 0.001) + 1e-9);
   const tries = ((PYQ_PROG._t || {})[q.id] || 0) + 1;
   PYQ_PROG._t = PYQ_PROG._t || {}; PYQ_PROG._t[q.id] = tries;
   P[q.id] = { a, ok, t: tries };

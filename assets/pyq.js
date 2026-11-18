@@ -12,6 +12,10 @@ const PYQ_EXAMS = [
   { id: 'main', title: 'JEE Main',     icon: '📗', desc: 'AIEEE + JEE Main previous year questions' },
   { id: 'adv',  title: 'JEE Advanced', icon: '📕', desc: 'IIT-JEE + JEE Advanced previous year questions' }
 ];
+const PYQ_TYPES = { mcq: 'Single Correct', multi: 'One or More Correct', num: 'Numerical Value', match: 'Match the Following', tf: 'True / False', fill: 'Fill in the Blank', sub: 'Subjective' };
+const PYQ_TYPE_ORDER = ['mcq', 'multi', 'num', 'match', 'tf', 'fill', 'sub'];
+const PYQ_SELF = { fill: 1, match: 1, sub: 1 };          // no auto-check: the answer is shown and the student marks it
+const pyqOptType = t => t === 'mcq' || t === 'tf';        // one tap answers
 const PYQ_MODES = { all: { title: 'All PYQs', icon: '🗂️' }, mrq: { title: 'Most Repeated', icon: '🔥' } };
 const PYQ_IDX = {};            // exam → index.json (null = not available)
 const PYQ_UNITS = {};          // exam:unitId → unit file
@@ -48,10 +52,10 @@ const pyqSolvedOf = idx => { const P = pyqProg(); let n = 0; for(const k in P) i
 
 /* ---------- folder cards (inside the normal folder screen) ---------- */
 function pyqFolderCard(f){
-  if(!('main' in PYQ_IDX)){ pyqIndex('main').then(() => { if(VIEW.level === 'home' && $('papers').classList.contains('active')) renderPapers(); }); }
-  const idx = PYQ_IDX.main;
-  const n = idx ? idx.total : 0;
-  return folderCard(f.icon || '🎯', f.title, f.desc || '', n, idx ? pyqSolvedOf(idx) : 0, { level: 'pyq' }, n ? '' : 'Open', 'question')
+  if(!PYQ_EXAMS.every(x => x.id in PYQ_IDX)){ Promise.all(PYQ_EXAMS.map(x => pyqIndex(x.id))).then(() => { if(VIEW.level === 'home' && $('papers').classList.contains('active')) renderPapers(); }); }
+  const idxs = PYQ_EXAMS.map(x => PYQ_IDX[x.id]).filter(Boolean);
+  const n = idxs.reduce((a, i) => a + i.total, 0);
+  return folderCard(f.icon || '🎯', f.title, f.desc || '', n, idxs.reduce((a, i) => a + pyqSolvedOf(i), 0), { level: 'pyq' }, n ? '' : 'Open', 'question')
     .replace(/ empty-f/, '').replace(/(\d+) questions? · (\d+) done/, '$1 PYQs · $2 solved').replace(/(\d+) questions?</, '$1 PYQs<');
 }
 async function renderPyqFolders(){
@@ -207,8 +211,7 @@ function renderPyqSide(){
       <div class="ps-years">${yrs.map(y => `<button type="button" class="yb" data-yr="${y}">${y}</button>`).join('')}</div>
     </details>
     <details class="ps-sec" open><summary>Question type</summary>
-      <label class="ck"><input type="checkbox" data-type="mcq"><span>Single correct (MCQ)</span></label>
-      <label class="ck"><input type="checkbox" data-type="num"><span>Numerical value</span></label>
+      ${PYQ_TYPE_ORDER.filter(t => (idx.types || { mcq: 1, num: 1 })[t]).map(t => `<label class="ck"><input type="checkbox" data-type="${t}"><span>${PYQ_TYPES[t]}</span><span class="pc">${(idx.types || {})[t] || ''}</span></label>`).join('')}
     </details>
     <details class="ps-sec" open><summary>My progress</summary>
       <label class="ck"><input type="checkbox" data-st="new"><span>Not attempted</span></label>
@@ -326,7 +329,7 @@ function chipsHTML(){
     const s = subList(u).find(x => String(x.id) === sid); if(s) out.push([`sub:${k}`, s.title]);
   });
   if(f.years.length) out.push(['years', f.years.length <= 4 ? f.years.slice().sort().join(', ') : f.years.length + ' years']);
-  f.types.forEach(t => out.push([`type:${t}`, t === 'mcq' ? 'MCQ' : 'Numerical']));
+  f.types.forEach(t => out.push([`type:${t}`, PYQ_TYPES[t] || t]));
   f.status.forEach(s => out.push([`st:${s}`, { new: 'Not attempted', bad: 'Got wrong', ok: 'Solved' }[s]]));
   if(f.q.trim()) out.push(['q', '“' + f.q.trim() + '”']);
   return out.map(([k, t]) => `<button type="button" class="fchip" data-rm="${esc(k)}">${esc(t)} <span>✕</span></button>`).join('');
@@ -388,12 +391,15 @@ function renderPyqList(){
       }
     }
     const sub = (U.subs || []).find(x => String(x.id) === String(q.sub));
-    const body = q.type === 'mcq'
-      ? '<div class="opts">' + (q.opts || []).map((o, k) => `<button type="button" class="opt" data-k="${k}"><span class="ol">${LET[k]}</span><span class="ot">${o}</span></button>`).join('') + '</div>'
+    const optsHTML = () => '<div class="opts' + (q.type === 'tf' ? ' tf' : '') + '">' + (q.opts || []).map((o, k) => `<button type="button" class="opt" data-k="${k}"><span class="ol">${q.type === 'tf' ? (k ? 'F' : 'T') : LET[k]}</span><span class="ot">${o}</span></button>`).join('') + '</div>';
+    const body = pyqOptType(q.type) ? optsHTML()
+      : q.type === 'multi' ? optsHTML() + '<div class="sq-multi"><button type="button" class="btn sq-mcheck">Check Answer</button><span class="sq-hint">Select every correct option, then check.</span></div>'
+      : PYQ_SELF[q.type] ? `<div class="sq-self"><button type="button" class="btn sq-show">👁 Show Answer</button>
+           <span class="sq-selfq" hidden>Did you get it right? <button type="button" class="btn green small sq-self-ok">✓ Yes</button> <button type="button" class="btn light small sq-self-bad">✗ No</button></span></div>`
       : `<div class="sq-num"><input class="sq-in" type="text" inputmode="decimal" autocomplete="off" maxlength="14" placeholder="Type your answer" aria-label="Answer">
            <button type="button" class="btn sq-check">Check</button></div>`;
     html += `<article class="card sq pq" id="pq_${esc(q.id)}" data-id="${esc(q.id)}">
-      <div class="sq-head"><span class="sq-no">Q${s + j + 1}</span><span class="pill">${q.type === 'mcq' ? 'Single Correct' : 'Numerical Value'}</span>
+      <div class="sq-head"><span class="sq-no">Q${s + j + 1}</span><span class="pill">${PYQ_TYPES[q.type] || ''}</span>
         ${pyqShowSrc() && srcText(q) ? `<span class="pill src">${esc(srcText(q))}</span>` : ''}<span class="sq-badge"></span></div>
       <div class="q-text">${q.q}</div>
       ${body}
@@ -407,7 +413,9 @@ function renderPyqList(){
       <div class="sq-sol"><div class="sq-sol-in"><div class="sq-sol-box">
         <h4>Solution</h4>
         <div class="st">${q.sol || '<i>Solution not provided.</i>'}</div>
-        <p class="sq-ansline">Answer: <b>${esc(q.bonus ? 'Bonus' : (q.type === 'mcq' ? [q.ans].concat(q.alt || []).map(k => '(' + LET[Number(k)] + ')').join(' or ') : String(q.ans)))}</b></p>
+        ${PYQ_SELF[q.type] ? (q.ans ? `<p class="sq-ansline">Answer: <b>${q.ans}</b></p>` : '')
+          : `<p class="sq-ansline">Answer: <b>${esc(q.bonus ? 'Bonus' : q.type === 'mcq' ? [q.ans].concat(q.alt || []).map(k => '(' + LET[Number(k)] + ')').join(' or ')
+              : q.type === 'multi' ? q.ans.map(k => '(' + LET[Number(k)] + ')').join(', ') : q.type === 'tf' ? (q.ans ? 'False' : 'True') : String(q.ans))}</b></p>`}
         <p class="pq-src">${esc([srcText(q), U.title, sub ? sub.title : ''].filter(Boolean).join(' · '))}</p>
       </div></div></div>
     </article>`;
@@ -436,12 +444,19 @@ function paintPq(q){
   const el = $('pq_' + q.id); if(!el) return;
   const r = pyqProg()[q.id], ok = !!r && r.ok, bad = !!r && !r.ok;
   el.classList.toggle('is-ok', ok); el.classList.toggle('is-bad', bad);
-  if(q.type === 'mcq'){
+  if(pyqOptType(q.type) || q.type === 'multi'){
+    const multi = q.type === 'multi', sel = (PQ.sel || {})[q.id] || [];
     el.querySelectorAll('.opt').forEach(b => {
-      const k = +b.dataset.k, mine = !!r && Number(r.a) === k;
+      const k = +b.dataset.k, mine = !!r && (multi ? (r.a || []).indexOf(k) >= 0 : Number(r.a) === k);
       b.classList.toggle('correct', ok && mine); b.classList.toggle('wrong', bad && mine);
       b.classList.toggle('dim', !!r && !mine); b.disabled = !!r;
+      b.classList.toggle('sel', multi && !r && sel.indexOf(k) >= 0);
     });
+    if(multi){ const mc = el.querySelector('.sq-multi'); mc.hidden = !!r; }
+  } else if(PYQ_SELF[q.type]){
+    const shown = !!(PQ.shown || {})[q.id];
+    el.querySelector('.sq-show').hidden = !!r || shown;
+    el.querySelector('.sq-selfq').hidden = !!r || !shown;
   } else {
     const inp = el.querySelector('.sq-in'), cb = el.querySelector('.sq-check');
     inp.value = r ? r.a : ''; inp.disabled = !!r; cb.disabled = !!r;
@@ -449,7 +464,7 @@ function paintPq(q){
   }
   const t = r ? (r.t || 1) : 0;
   el.querySelector('.sq-fb').innerHTML = ok ? `<span class="fb-ok">🎉 Correct! ${t > 1 ? 'You got it on try ' + t + '.' : 'Well done.'}</span>`
-    : bad ? '<span class="fb-bad">✘ Not correct. Tap <b>Try Again</b>, or open the solution.</span>' : '';
+    : bad ? (PYQ_SELF[q.type] ? '<span class="fb-bad">Marked for revision. Tap <b>Try Again</b> when you are ready.</span>' : '<span class="fb-bad">✘ Not correct. Tap <b>Try Again</b>, or open the solution.</span>') : '';
   el.querySelector('.sq-badge').innerHTML = ok ? '<span class="sb-ok">✓ Solved</span>' : bad ? '<span class="sb-bad">✗ Try again</span>' : '';
   el.querySelector('.sq-retry').hidden = !bad;
   el.querySelector('.sq-reset').hidden = !ok;
@@ -458,7 +473,9 @@ function answerPq(q, a, x, y){
   const P = pyqProg(); if(P[q.id]) return;
   let ok;
   if(q.bonus) ok = true;
-  else if(q.type === 'mcq') ok = Number(a) === Number(q.ans) || (q.alt || []).indexOf(Number(a)) >= 0;
+  else if(PYQ_SELF[q.type]) ok = a === 'ok';
+  else if(q.type === 'multi') ok = a.length === q.ans.length && a.every((k, i) => k === q.ans[i]);
+  else if(pyqOptType(q.type)) ok = Number(a) === Number(q.ans) || (q.alt || []).indexOf(Number(a)) >= 0;
   else ok = Math.abs(parseFloat(a) - Number(q.ans)) <= (q.tol != null ? Number(q.tol) : 0.001) + 1e-9;
   const tries = ((PYQ_PROG._t || {})[q.id] || 0) + 1;
   PYQ_PROG._t = PYQ_PROG._t || {}; PYQ_PROG._t[q.id] = tries;
@@ -473,9 +490,28 @@ $('pyqList').addEventListener('click', e => {
   const card = e.target.closest('.pq'); if(!card) return;
   const q = pqById(card.dataset.id); if(!q) return;
   const opt = e.target.closest('.opt');
-  if(opt && !opt.disabled){ const r = opt.getBoundingClientRect(); answerPq(q, +opt.dataset.k, e.clientX || r.left + 24, e.clientY || r.top + r.height / 2); return; }
+  if(opt && !opt.disabled){
+    if(q.type === 'multi'){
+      PQ.sel = PQ.sel || {}; const S = PQ.sel[q.id] = PQ.sel[q.id] || [], k = +opt.dataset.k, i = S.indexOf(k);
+      if(i >= 0) S.splice(i, 1); else S.push(k);
+      opt.classList.toggle('sel', i < 0); card.querySelector('.sq-fb').innerHTML = ''; return;
+    }
+    const r = opt.getBoundingClientRect(); answerPq(q, +opt.dataset.k, e.clientX || r.left + 24, e.clientY || r.top + r.height / 2); return;
+  }
+  const mc = e.target.closest('.sq-mcheck');
+  if(mc){
+    const S = ((PQ.sel || {})[q.id] || []).slice().sort((a, b) => a - b);
+    if(!S.length){ card.querySelector('.sq-fb').innerHTML = '<span class="fb-bad">Select at least one option first.</span>'; return; }
+    const r = mc.getBoundingClientRect(); answerPq(q, S, r.left + r.width / 2, r.top + r.height / 2); return;
+  }
+  if(e.target.closest('.sq-show')){
+    PQ.shown = PQ.shown || {}; PQ.shown[q.id] = 1; card.classList.add('sol-open');
+    const b = card.querySelector('.sq-solbtn'); b.setAttribute('aria-expanded', true); b.innerHTML = '📕 Hide Solution'; paintPq(q); return;
+  }
+  const so = e.target.closest('.sq-self-ok'), sx = e.target.closest('.sq-self-bad');
+  if(so || sx){ const r = (so || sx).getBoundingClientRect(); answerPq(q, so ? 'ok' : 'no', r.left + r.width / 2, r.top + r.height / 2); return; }
   if(e.target.closest('.sq-check')) return checkPqNum(q, card);
-  if(e.target.closest('.sq-retry') || e.target.closest('.sq-reset')){ delete pyqProg()[q.id]; pyqSaveProg(); paintPq(q); renderPyqHead(); return; }
+  if(e.target.closest('.sq-retry') || e.target.closest('.sq-reset')){ delete pyqProg()[q.id]; if(PQ.sel) delete PQ.sel[q.id]; if(PQ.shown) delete PQ.shown[q.id]; pyqSaveProg(); paintPq(q); renderPyqHead(); return; }
   const sb = e.target.closest('.sq-solbtn');
   if(sb){ const open = !card.classList.contains('sol-open'); card.classList.toggle('sol-open', open); sb.setAttribute('aria-expanded', open); sb.innerHTML = open ? '📕 Hide Solution' : '📘 View Solution'; }
 });

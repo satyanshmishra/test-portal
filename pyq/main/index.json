@@ -1,6 +1,10 @@
 {
  "exam": "JEE Main",
  "prefix": "M",
+ "types": {
+  "mcq": 4025,
+  "num": 1128
+ },
  "version": "cd018488a0",
  "total": 5153,
  "years": [

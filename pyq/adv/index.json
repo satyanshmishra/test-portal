@@ -1,0 +1,79 @@
+{
+ "exam": "JEE Advanced",
+ "prefix": "A",
+ "types": {
+  "mcq": 36,
+  "multi": 7,
+  "sub": 10,
+  "tf": 3,
+  "fill": 6,
+  "match": 1,
+  "num": 6
+ },
+ "version": "d4cd325fa1",
+ "total": 69,
+ "years": [
+  1980,
+  1981,
+  1982,
+  1983,
+  1984,
+  1985,
+  1988,
+  1989,
+  1991,
+  1992,
+  1994,
+  1995,
+  1996,
+  1998,
+  1999,
+  2000,
+  2001,
+  2002,
+  2003,
+  2004,
+  2005,
+  2006,
+  2010,
+  2011,
+  2012,
+  2015,
+  2016,
+  2018,
+  2020,
+  2024
+ ],
+ "units": [
+  {
+   "id": "1",
+   "title": "Functions",
+   "file": "01_functions.json",
+   "n": 69,
+   "nMrq": 0,
+   "subs": [
+    {
+     "id": "1.1",
+     "title": "Domain and Range",
+     "n": 16
+    },
+    {
+     "id": "1.2",
+     "title": "One-One, Onto, Inverse and Number of Functions",
+     "n": 24
+    },
+    {
+     "id": "1.3",
+     "title": "Composite, Periodic and Even-Odd Functions",
+     "n": 11
+    },
+    {
+     "id": "1.4",
+     "title": "Functional Equations and General Properties",
+     "n": 18
+    }
+   ],
+   "mrq": []
+  }
+ ]
+}

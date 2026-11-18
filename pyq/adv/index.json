@@ -2,16 +2,16 @@
  "exam": "JEE Advanced",
  "prefix": "A",
  "types": {
-  "mcq": 542,
-  "multi": 168,
-  "sub": 348,
-  "tf": 24,
-  "fill": 107,
-  "match": 15,
-  "num": 151
+  "mcq": 574,
+  "multi": 173,
+  "sub": 377,
+  "tf": 28,
+  "fill": 114,
+  "match": 16,
+  "num": 154
  },
- "version": "f714b8afe3",
- "total": 1355,
+ "version": "153d625cab",
+ "total": 1436,
  "years": [
   1978,
   1979,
@@ -552,6 +552,36 @@
     {
      "id": "18.4",
      "title": "Applications of Differential Equations",
+     "n": 7
+    }
+   ],
+   "mrq": []
+  },
+  {
+   "id": "19",
+   "title": "Points and Straight Lines",
+   "file": "19_points_and_straight_lines.json",
+   "n": 81,
+   "nMrq": 0,
+   "subs": [
+    {
+     "id": "19.1",
+     "title": "Coordinates, Area and Locus",
+     "n": 23
+    },
+    {
+     "id": "19.2",
+     "title": "Equation of a Line, Angles and Distances",
+     "n": 30
+    },
+    {
+     "id": "19.3",
+     "title": "Centres of a Triangle, Bisectors and Reflection",
+     "n": 21
+    },
+    {
+     "id": "19.4",
+     "title": "Family of Lines and Concurrency",
      "n": 7
     }
    ],

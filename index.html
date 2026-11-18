@@ -706,10 +706,11 @@ function folderCard(icon, title, desc, n, done, go, empty, unit){
 /* "Group | Title" in a paper's name puts it in a sub-folder (e.g. "Complex Numbers | Test 2") */
 function splitName(n){ const i=String(n||'').indexOf(' | '); return i<0 ? {g:'', t:String(n||'')} : {g:n.slice(0,i).trim(), t:n.slice(i+3).trim()}; }
 const showName = n => { const s=splitName(n); return s.g ? s.g+' · '+s.t : s.t; };
-/* extra folder level inside a folder: sub-folders whose name passes test() are shown inside it,
-   and its card comes first. Topic-wise: the chapter tests named "NN Chapter | Test 1/2/3". */
+/* extra folder inside a folder, shown first: papers whose group name passes test() are kept inside it.
+   Topic-wise: the loose tests (no "Group | " in the name) go into "Topic-wise Tests Level Up";
+   the chapter folders stay where they are. */
 const SUPER_FOLDERS = (CFG.SUPER_FOLDERS && CFG.SUPER_FOLDERS.length) ? CFG.SUPER_FOLDERS : [
-  {cat:'topic', name:'Topic-wise Tests Level Up', desc:'Chapter-wise tests: Test 1, 2 and 3 for every chapter', icon:'🚀', test:g=>/^\d{2}[A-Z]?\s/.test(g)}
+  {cat:'topic', name:'Topic-wise Tests Level Up', desc:'Topic tests', icon:'🚀', test:g=>!g}
 ];
 const natCmp = (a,b) => a.localeCompare(b, undefined, {numeric:true, sensitivity:'base'});
 function renderPapers(){

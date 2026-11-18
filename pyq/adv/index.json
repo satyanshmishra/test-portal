@@ -2,16 +2,16 @@
  "exam": "JEE Advanced",
  "prefix": "A",
  "types": {
-  "mcq": 699,
-  "multi": 221,
-  "sub": 437,
-  "tf": 29,
-  "fill": 138,
+  "mcq": 743,
+  "multi": 234,
+  "sub": 459,
+  "tf": 33,
+  "fill": 153,
   "match": 21,
-  "num": 177
+  "num": 190
  },
- "version": "bd7723f43d",
- "total": 1722,
+ "version": "55746c6aa9",
+ "total": 1833,
  "years": [
   1978,
   1979,
@@ -723,6 +723,36 @@
      "id": "24.4",
      "title": "Vector-based and Mixed Problems",
      "n": 12
+    }
+   ],
+   "mrq": []
+  },
+  {
+   "id": "25",
+   "title": "Vectors",
+   "file": "25_vectors.json",
+   "n": 111,
+   "nMrq": 0,
+   "subs": [
+    {
+     "id": "25.1",
+     "title": "Algebra of Vectors and Scalar Product",
+     "n": 38
+    },
+    {
+     "id": "25.2",
+     "title": "Vector Product",
+     "n": 23
+    },
+    {
+     "id": "25.3",
+     "title": "Scalar Triple Product",
+     "n": 35
+    },
+    {
+     "id": "25.4",
+     "title": "Vector Triple Product and Applications",
+     "n": 15
     }
    ],
    "mrq": []

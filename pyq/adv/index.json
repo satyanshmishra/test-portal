@@ -2,16 +2,16 @@
  "exam": "JEE Advanced",
  "prefix": "A",
  "types": {
-  "mcq": 398,
-  "multi": 111,
-  "sub": 222,
-  "tf": 20,
-  "fill": 83,
+  "mcq": 415,
+  "multi": 112,
+  "sub": 248,
+  "tf": 21,
+  "fill": 91,
   "match": 12,
-  "num": 105
+  "num": 106
  },
- "version": "e5e550293c",
- "total": 951,
+ "version": "a63cdd34b1",
+ "total": 1005,
  "years": [
   1978,
   1979,
@@ -413,6 +413,56 @@
      "id": "13.4",
      "title": "Functional Equations and Mixed Problems",
      "n": 23
+    }
+   ],
+   "mrq": []
+  },
+  {
+   "id": "14",
+   "title": "Differentiation",
+   "file": "14_differentiation.json",
+   "n": 27,
+   "nMrq": 0,
+   "subs": [
+    {
+     "id": "14.1",
+     "title": "Derivatives of Standard, Composite and Implicit Functions",
+     "n": 11
+    },
+    {
+     "id": "14.2",
+     "title": "Logarithmic, Parametric and Higher Order Derivatives",
+     "n": 9
+    },
+    {
+     "id": "14.3",
+     "title": "Derivative of Inverse Functions, Determinants and Related Results",
+     "n": 7
+    }
+   ],
+   "mrq": []
+  },
+  {
+   "id": "15",
+   "title": "Indefinite Integrals",
+   "file": "15_indefinite_integrals.json",
+   "n": 27,
+   "nMrq": 0,
+   "subs": [
+    {
+     "id": "15.1",
+     "title": "Integration by Substitution",
+     "n": 12
+    },
+    {
+     "id": "15.2",
+     "title": "Integration by Parts",
+     "n": 7
+    },
+    {
+     "id": "15.3",
+     "title": "Partial Fractions, Algebraic and Special Forms",
+     "n": 8
     }
    ],
    "mrq": []

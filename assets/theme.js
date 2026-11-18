@@ -3,8 +3,8 @@
    and a floating one on screens without a top bar (login). */
 (function () {
   var KEY = 'stp_theme', root = document.documentElement;
-  function get() { try { return localStorage.getItem(KEY); } catch (e) { return null; } }
-  function set(v) { try { localStorage.setItem(KEY, v); } catch (e) {} }
+  function get() { try { var v = localStorage.getItem(KEY); try { return JSON.parse(v); } catch (e) { return v; } } catch (e) { return null; } }
+  function set(v) { try { localStorage.setItem(KEY, JSON.stringify(v)); } catch (e) {} if (window.cloudTouch) cloudTouch(KEY); }
   function apply(t) {
     root.setAttribute('data-theme', t);
     var m = document.querySelector('meta[name="theme-color"]');
@@ -24,6 +24,7 @@
     set(t); apply(t);
   }
   window.toggleTheme = toggle;
+  document.addEventListener('cloud:loaded', function () { apply(get() === 'dark' ? 'dark' : 'light'); });   // the account's choice
 
   function mk(cls) {
     var b = document.createElement('button');

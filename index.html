@@ -7,7 +7,8 @@
 <link rel="stylesheet" href="assets/app.css?v=26111902">
 <link rel="stylesheet" href="assets/dark.css?v=26111902">
 <meta name="theme-color" content="#1f4e8c">
-<script src="assets/theme.js?v=26111804"></script>
+<script src="assets/theme.js?v=26111904"></script>
+<script src="assets/cloud.js?v=26111904"></script>
 <script src="config.js"></script>
 <script src="assets/supabase.js"></script>
 <script>
@@ -379,8 +380,8 @@ const LET = 'ABCDEFGH'.split('');
 const $ = id => document.getElementById(id);
 const LS = {
   get(k, d){ try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch(e){ return d; } },
-  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} },
-  del(k){ try { localStorage.removeItem(k); } catch(e){} }
+  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} if(window.cloudTouch) cloudTouch(k); },   // also saved in the account (assets/cloud.js)
+  del(k){ try { localStorage.removeItem(k); } catch(e){} if(window.cloudTouch) cloudTouch(k); }
 };
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function pad(n){return String(n).padStart(2,'0');}
@@ -598,6 +599,7 @@ $('vProfile').addEventListener('submit', async e=>{
 
 async function logout(){
   busy(true,'Logging out…');
+  try{ if(window.cloudLogout) await cloudLogout(); }catch(e){}
   try{ if(SB) await SB.auth.signOut(); }catch(e){}
   USER=null; ATTEMPTS={}; PAPERS=[]; VIEW={level:'home'};
   busy(false); authMsg(''); authView('vLogin'); show('login');
@@ -628,6 +630,8 @@ async function enter(session, log){
 }
 
 async function afterLogin(){
+  busy(true,'Loading your progress…');
+  if(window.cloudLoad) await cloudLoad();               // this account's saved work comes first, on every device
   mergePendingAttempts(); flushPending();
   // resume an unfinished test after refresh / closing the tab
   const act = LS.get('stp_active', null);
@@ -1866,7 +1870,7 @@ window.addEventListener('hashchange',()=>{ if(/access_token=|error_description=/
   busy(false);
 })();
 </script>
-<script src="assets/pyq.js?v=26111903"></script>
-<script src="assets/group.js?v=26111901"></script>
+<script src="assets/pyq.js?v=26111904"></script>
+<script src="assets/group.js?v=26111904"></script>
 </body>
 </html>

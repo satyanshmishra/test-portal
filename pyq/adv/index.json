@@ -2,16 +2,16 @@
  "exam": "JEE Advanced",
  "prefix": "A",
  "types": {
-  "mcq": 620,
-  "multi": 180,
-  "sub": 408,
+  "mcq": 645,
+  "multi": 191,
+  "sub": 419,
   "tf": 29,
   "fill": 133,
-  "match": 16,
-  "num": 162
+  "match": 17,
+  "num": 169
  },
- "version": "375a9489cb",
- "total": 1548,
+ "version": "f7b8a0f8a9",
+ "total": 1603,
  "years": [
   1978,
   1979,
@@ -613,6 +613,36 @@
      "id": "20.4",
      "title": "Locus Problems",
      "n": 18
+    }
+   ],
+   "mrq": []
+  },
+  {
+   "id": "21",
+   "title": "Parabola",
+   "file": "21_parabola.json",
+   "n": 55,
+   "nMrq": 0,
+   "subs": [
+    {
+     "id": "21.1",
+     "title": "Standard Equation and Basic Properties",
+     "n": 13
+    },
+    {
+     "id": "21.2",
+     "title": "Tangents and Common Tangents",
+     "n": 15
+    },
+    {
+     "id": "21.3",
+     "title": "Normals",
+     "n": 13
+    },
+    {
+     "id": "21.4",
+     "title": "Chords and Locus Problems",
+     "n": 14
     }
    ],
    "mrq": []

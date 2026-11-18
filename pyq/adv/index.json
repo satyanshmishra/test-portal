@@ -2,16 +2,16 @@
  "exam": "JEE Advanced",
  "prefix": "A",
  "types": {
-  "mcq": 674,
-  "multi": 206,
-  "sub": 430,
+  "mcq": 699,
+  "multi": 221,
+  "sub": 437,
   "tf": 29,
-  "fill": 136,
-  "match": 18,
-  "num": 173
+  "fill": 138,
+  "match": 21,
+  "num": 177
  },
- "version": "3d9afa38ec",
- "total": 1666,
+ "version": "bd7723f43d",
+ "total": 1722,
  "years": [
   1978,
   1979,
@@ -693,6 +693,36 @@
      "id": "23.3",
      "title": "Locus and Problems with Other Conics",
      "n": 9
+    }
+   ],
+   "mrq": []
+  },
+  {
+   "id": "24",
+   "title": "3D Geometry",
+   "file": "24_three_dimensional_geometry.json",
+   "n": 56,
+   "nMrq": 0,
+   "subs": [
+    {
+     "id": "24.1",
+     "title": "Straight Lines in Space",
+     "n": 11
+    },
+    {
+     "id": "24.2",
+     "title": "Planes",
+     "n": 18
+    },
+    {
+     "id": "24.3",
+     "title": "Line and Plane Together",
+     "n": 15
+    },
+    {
+     "id": "24.4",
+     "title": "Vector-based and Mixed Problems",
+     "n": 12
     }
    ],
    "mrq": []

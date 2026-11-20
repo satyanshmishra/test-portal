@@ -108,8 +108,6 @@ h3{font-size:16px;margin:18px 0 6px}
         <span class="tg"><input type="checkbox" id="swLocked"><span></span></span></label>
       <label class="sw"><div><b>🙈 Hide names on the shared screen</b><small>The lobby shows only the count.</small></div>
         <span class="tg"><input type="checkbox" id="swHide"><span></span></span></label>
-      <label class="sw"><div><b>🟢 Google accounts only</b><small>New players must log in with "Continue with Google" (their real Google name).</small></div>
-        <span class="tg"><input type="checkbox" id="swGoogle"><span></span></span></label>
       <input class="search" id="q" placeholder="Search name or email" autocomplete="off">
       <div id="plist"></div>
     </div>
@@ -263,7 +261,6 @@ function drawLive(){
   $('bLive').textContent = flagged.length || '';
   if(document.activeElement !== $('swLocked')) $('swLocked').checked = !!st.locked;
   if(document.activeElement !== $('swHide'))   $('swHide').checked   = !!st.hideNames;
-  if(document.activeElement !== $('swGoogle')) $('swGoogle').checked = !!st.googleOnly;
   const q = $('q').value.trim().toLowerCase();
   const list = PLAYERS.filter(p=>!q || (p.name||'').toLowerCase().includes(q) || (p.email||'').toLowerCase().includes(q));
   $('plist').innerHTML = list.length ? list.map(p=>`
@@ -319,7 +316,6 @@ async function setSw(key, el){
 }
 $('swLocked').onchange = e=>setSw('locked', e.target);
 $('swHide').onchange   = e=>setSw('hideNames', e.target);
-$('swGoogle').onchange = e=>setSw('googleOnly', e.target);
 
 /* ---------- spam alerts ---------- */
 async function pollAlerts(){

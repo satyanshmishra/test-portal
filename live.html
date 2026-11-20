@@ -32,6 +32,10 @@ window.MathJax = {
 .numbox{display:flex;gap:10px}
 .numbox .btn{flex:0 0 auto}
 .numbox input{flex:1;min-width:0;width:100%;font-size:26px;text-align:center;padding:14px;border-radius:14px;border:2px solid var(--line);background:var(--bg2);color:var(--ink);font-weight:800}
+.or{display:flex;align-items:center;gap:10px;color:var(--muted);margin:14px 0;font-size:13px}
+.or:before,.or:after{content:"";flex:1;height:1px;background:var(--line)}
+.gbtn{display:flex;align-items:center;justify-content:center;gap:10px}
+.gbtn:before{content:"G";font-weight:900;color:#4285f4;background:#fff;border-radius:50%;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center}
 .ans-show{margin-top:14px;padding:12px 16px;border-radius:14px;background:var(--card);border:1px solid var(--line);text-align:left;width:100%}
 </style>
 </head>
@@ -49,6 +53,8 @@ window.MathJax = {
       <div class="field"><label for="lEmail">Email</label><input id="lEmail" type="email" autocomplete="email" maxlength="120" placeholder="you@example.com"></div>
       <div class="field"><label for="lPass">Password</label><input id="lPass" type="password" autocomplete="current-password" maxlength="72" placeholder="Your password"></div>
       <button class="btn big" style="width:100%" type="submit">Log in →</button>
+      <div class="gwrap" style="display:none"><div class="or"><span>or</span></div>
+        <button type="button" class="btn ghost big gbtn" style="width:100%">Continue with Google</button></div>
       <p class="muted" style="margin:14px 0 0;font-size:14px">No account yet, or forgot password? <a href="./">Open the Test Portal</a>, create the account / reset there, then come back.</p>
     </form>
   </div></div>
@@ -64,6 +70,7 @@ window.MathJax = {
       <div id="joinMsg"></div>
       <div class="field"><input id="code" class="codein" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="••••••"></div>
       <button class="btn big yel" style="width:100%" type="submit">Join →</button>
+      <div id="joinGoogle" style="display:none;margin-top:12px"><button type="button" class="btn ghost gbtn" style="width:100%">Continue with Google</button></div>
       <p class="muted" style="margin:14px 0 0;font-size:14px">Playing as <b id="joinName" style="color:var(--ink)"></b> · <button type="button" class="linkbtn" id="logoutBtn">Not you?</button></p>
     </form>
   </div></div>
@@ -83,8 +90,31 @@ let ME = null, WAKE = null, LASTRENDER = '';
 
 function show(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('on', s.id===id)); }
 function msg(el, text, kind){ $(el).innerHTML = text ? `<div class="msg ${kind||'bad'}">${esc(text)}</div>` : ''; }
+/* "Continue with Google": the quiz then uses the real Google name */
+const GOOGLE_ON = !!(LIVE.CFG && LIVE.CFG.GOOGLE_LOGIN);
+if(GOOGLE_ON) document.querySelectorAll('.gwrap').forEach(g=>g.style.display='');
+async function googleLogin(){
+  const code = ($('code') && $('code').value) || new URLSearchParams(location.search).get('code') || '';
+  const back = location.origin + location.pathname + (code ? '?code='+encodeURIComponent(code) : '');
+  if(USER) await SB.auth.signOut().catch(()=>{});
+  const { error } = await SB.auth.signInWithOAuth({ provider:'google', options:{ redirectTo: back } });
+  if(error) msg(USER ? 'joinMsg' : 'loginMsg', error.message);
+}
+document.querySelectorAll('.gbtn').forEach(b=>b.onclick = googleLogin);
+/* server messages start with a tag: BLOCKED / REMOVED / GOOGLE / NAME_NOT_ALLOWED */
+function cleanErr(m){ return String(m||'').replace(/^(BLOCKED|REMOVED|GOOGLE|NAME_NOT_ALLOWED):\s*/,''); }
+function showRemoved(blocked){
+  clearInterval(POLL); clearInterval(TICK); LS.del('live_join'); ID=null;
+  show('sPlay');
+  $('play').innerHTML = `<div class="center"><div class="stu"><div class="ico bad">✕</div>
+    <div class="big">${blocked ? 'Account marked as spam' : 'You were removed'}</div>
+    <p class="muted" style="font-size:17px">${blocked
+      ? 'This account was marked as spam. Please log in with <b style="color:var(--ink)">your real name and your own email</b>' + (GOOGLE_ON ? ' (or use Continue with Google)' : '') + '.'
+      : 'The host removed you from this quiz.'}</p>
+    ${blocked ? `<button class="btn" onclick="location.href='./'">Open the Test Portal</button>` : ''}</div></div>`;
+}
 function nameOf(u){ const m=u.user_metadata||{}; return String(m.full_name||m.name||'').trim() || String(u.email||'Student').split('@')[0]; }
-function setMe(){ $('meName').textContent = USER ? nameOf(USER) : ''; $('meScore').textContent = nf(ME ? ME.score : 0); }
+function setMe(){ $('meName').textContent = $('meName').dataset.name || (USER ? nameOf(USER) : ''); $('meScore').textContent = nf(ME ? ME.score : 0); }
 async function keepAwake(){ try{ if('wakeLock' in navigator && !WAKE) { WAKE = await navigator.wakeLock.request('screen'); WAKE.addEventListener('release',()=>WAKE=null); } }catch(e){} }
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible' && ID){ keepAwake(); poll(true); } });
 
@@ -101,8 +131,9 @@ $('logoutBtn').onclick = async ()=>{ await SB.auth.signOut().catch(()=>{}); USER
 $('code').addEventListener('input', e=>{ e.target.value = e.target.value.replace(/\D/g,'').slice(0,6); });
 $('joinForm').addEventListener('submit', e=>{ e.preventDefault(); join($('code').value); });
 
-function afterLogin(){
+async function afterLogin(){
   $('joinName').textContent = nameOf(USER);
+  try{ const st = await rpc('my_status', {}, 0); if(st && st.blocked) return showRemoved(true); }catch(e){}
   const q = new URLSearchParams(location.search).get('code');
   const saved = LS.get('live_join', null);
   if(saved && saved.uid===USER.id && (!q || q===saved.code)) return resume(saved);
@@ -116,14 +147,20 @@ async function join(code){
   try{
     const r = await rpc('live_join', { p_code: code, p_name: nameOf(USER) });
     ID = r.id; CODE = r.code; LS.set('live_join', { uid:USER.id, id:ID, code:CODE });
+    if(r.name) $('meName').dataset.name = r.name;
     startGame();
-  }catch(e){ msg('joinMsg', e.message); }
+  }catch(e){
+    if(/^BLOCKED/.test(e.message)) return showRemoved(true);
+    $('joinGoogle').style.display = (/^GOOGLE/.test(e.message) && GOOGLE_ON) ? '' : 'none';
+    msg('joinMsg', cleanErr(e.message));
+  }
 }
 async function resume(saved){
   ID = saved.id; CODE = saved.code;
   try{
     const me = await rpc('live_me', { p_session: ID });
     if(!me || !me.joined) throw new Error('not joined');
+    if(me.banned) return showRemoved(false);
     ME = me; startGame();
   }catch(e){ LS.del('live_join'); ID=null; show('sJoin'); }
 }
@@ -152,8 +189,15 @@ async function poll(force){
 }
 function endGone(){ clearInterval(POLL); LS.del('live_join'); ID=null; show('sJoin'); msg('joinMsg','This quiz has finished.','good'); }
 
+let KV = null;
 async function onState(){
   const s = ROW.status;
+  // the host removed somebody: check whether it was me
+  const kv = (ROW.settings && ROW.settings.kv) || 0;
+  if(KV !== null && kv !== KV){
+    try{ const me = await rpc('live_me', { p_session: ID }); if(me && me.banned){ KV = kv; return showRemoved(false); } ME = me; }catch(e){}
+  }
+  KV = kv;
   if(['reveal','board','ended'].includes(s)){ try{ ME = await rpc('live_me', { p_session: ID }); setMe(); }catch(e){} }
   if(s==='question' && ANSWERED[ROW.q_index]===undefined){
     // after a refresh we may already have answered this question
@@ -240,7 +284,11 @@ async function send(qi, ans, btn){
     QUI = null;
     if(r==='ok' || r==='dup'){ ANSWERED[qi]=String(ans); if(navigator.vibrate) navigator.vibrate(40); }
     else if(r==='late'){ ANSWERED[qi]='—'; }
-    else if(r==='not_joined'){ await rpc('live_join', { p_code: CODE, p_name: nameOf(USER) }); SENDING=false; return send(qi, ans, btn); }
+    else if(r==='banned'){ SENDING=false; return showRemoved(false); }
+    else if(r==='not_joined'){
+      try{ await rpc('live_join', { p_code: CODE, p_name: nameOf(USER) }); }
+      catch(err){ SENDING=false; if(/^(REMOVED|BLOCKED)/.test(err.message)) return showRemoved(/^BLOCKED/.test(err.message)); throw err; }
+      SENDING=false; return send(qi, ans, btn); }
   }catch(e){
     alert('Could not send your answer: '+e.message);
   }

@@ -729,3 +729,11 @@ body:has(.screen.active > .topbar) .theme-btn.floating{display:none}
 .sf-st + span{flex:1;text-align:left}
 .sf-st i{font-style:normal;color:var(--muted);opacity:.5}
 .ps-tip{font-size:12.5px;color:var(--muted);margin:6px 2px 0}
+/* Continue with Google */
+.or-line{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13px;margin:14px 0}
+.or-line:before,.or-line:after{content:"";flex:1;height:1px;background:var(--line)}
+.gtop .or-line{display:none}
+.gtop{margin-bottom:4px}
+.btn.gbtn{display:flex;align-items:center;justify-content:center;gap:10px}
+.btn.gbtn:before{content:"G";font-weight:900;color:#4285f4;background:#fff;border:1px solid var(--line);border-radius:50%;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;font-size:14px}
+input[readonly]{opacity:.75;cursor:not-allowed}

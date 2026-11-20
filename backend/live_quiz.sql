@@ -6,6 +6,8 @@
 --  After running it, add your own login email as the quiz host (one line, run separately):
 --     insert into public.live_admins(email) values ('your-email@example.com') on conflict do nothing;
 --
+--  Run backend/spam_guard.sql first (spam check, real names, blocked accounts).
+--
 --  Students never see correct answers before the host reveals them:
 --  answers are stored in live_keys, which nobody can read directly;
 --  checking and scoring happen inside the database functions below.
@@ -70,6 +72,9 @@ create table if not exists public.live_players (
   joined_at  timestamptz not null default now(),
   primary key (session_id, user_id)
 );
+alter table public.live_players add column if not exists banned   boolean not null default false;  -- removed by the host
+alter table public.live_players add column if not exists flag     int     not null default 0;      -- spam score of the name
+alter table public.live_players add column if not exists flag_why jsonb;
 
 create table if not exists public.live_answers (
   session_id uuid not null references public.live_sessions(id) on delete cascade,
@@ -172,28 +177,54 @@ begin
 end $$;
 
 -- ---------- student: join with a code ----------
+-- The name always comes from the account (Google name, else the sign-up name); p_name is ignored.
+-- settings.locked = no new players, settings.googleOnly = only accounts that signed in with Google.
 create or replace function public.live_join(p_code text, p_name text default '')
-returns jsonb language plpgsql security definer set search_path = public as $$
-declare s live_sessions; nm text;
+returns jsonb language plpgsql security definer set search_path = public, auth as $$
+declare s live_sessions; p live_players; nm text; r jsonb; sc int; was boolean;
 begin
   if auth.uid() is null then raise exception 'Please log in first'; end if;
+  if exists (select 1 from blocked_users where user_id = auth.uid()) then
+    raise exception 'BLOCKED: This account was marked as spam. Please log in with your real name and your own email.';
+  end if;
   select * into s from live_sessions
    where code = trim(coalesce(p_code, '')) and status <> 'ended'
    order by created_at desc limit 1;
   if not found then raise exception 'No live quiz is running with this code'; end if;
-  nm := left(coalesce(nullif(trim(auth.jwt() -> 'user_metadata' ->> 'full_name'), ''),
-                      nullif(trim(p_name), ''),
-                      split_part(coalesce(auth.jwt() ->> 'email', 'Student'), '@', 1)), 40);
-  insert into live_players(session_id, user_id, name, rank)
-  values (s.id, auth.uid(), nm, null)
-  on conflict (session_id, user_id) do update set name = excluded.name;
+
+  select * into p from live_players where session_id = s.id and user_id = auth.uid();
+  was := found;
+  if was and p.banned then raise exception 'REMOVED: The host has removed you from this quiz.'; end if;
+  if not was and coalesce((s.settings ->> 'locked')::boolean, false) then
+    raise exception 'Entry is closed for this quiz. Ask your teacher.';
+  end if;
+  if not was and coalesce((s.settings ->> 'googleOnly')::boolean, false)
+     and not exists (select 1 from auth.identities where user_id = auth.uid() and provider = 'google') then
+    raise exception 'GOOGLE: For this quiz, log in with "Continue with Google".';
+  end if;
+
+  nm := public.real_name(auth.uid());
+  begin
+    r := public.spam_check(nm, auth.jwt() ->> 'email'); sc := coalesce((r ->> 'score')::int, 0);
+  exception when others then r := null; sc := 0;
+  end;
+  insert into live_players(session_id, user_id, name, rank, flag, flag_why)
+  values (s.id, auth.uid(), nm, null, sc, r -> 'reasons')
+  on conflict (session_id, user_id) do update set name = excluded.name, flag = excluded.flag, flag_why = excluded.flag_why;
+  if not was and sc >= 3 then
+    begin
+      insert into spam_alerts(user_id, email, name, score, reasons, source, session_id)
+      values (auth.uid(), auth.jwt() ->> 'email', nm, sc, r -> 'reasons', 'live_join', s.id);
+    exception when others then null;
+    end;
+  end if;
   return jsonb_build_object('id', s.id, 'title', s.title, 'code', s.code, 'name', nm);
 end $$;
 
 -- ---------- student: answer ----------
 create or replace function public.live_submit(p_session uuid, p_index int, p_answer text)
 returns text language plpgsql security definer set search_path = public as $$
-declare s live_sessions; k live_keys; ok boolean := false; ms int; dur numeric; b int;
+declare s live_sessions; k live_keys; p live_players; ok boolean := false; ms int; dur numeric; b int;
         a text := left(trim(coalesce(p_answer, '')), 20);
 begin
   if auth.uid() is null then raise exception 'Please log in first'; end if;
@@ -201,7 +232,9 @@ begin
   if not found or s.status <> 'question' or s.q_index <> p_index then return 'closed'; end if;
   if now() < s.starts_at then return 'early'; end if;
   if now() > s.ends_at + interval '1.5 seconds' then return 'late'; end if;
-  if not exists (select 1 from live_players where session_id = p_session and user_id = auth.uid()) then return 'not_joined'; end if;
+  select * into p from live_players where session_id = p_session and user_id = auth.uid();
+  if not found then return 'not_joined'; end if;
+  if p.banned then return 'banned'; end if;
   if a = '' then return 'empty'; end if;
 
   select * into k from live_keys where session_id = p_session and q_index = p_index;
@@ -224,6 +257,18 @@ begin
   if not found then return 'dup'; end if;
   return 'ok';
 end $$;
+
+-- ---------- names on the shared screen: a flagged name is never shown ----------
+create or replace function public.live_show_name_(p_name text, p_flag int) returns text
+language sql immutable as $$ select case when coalesce(p_flag, 0) >= 6 then 'Hidden name' else p_name end; $$;
+
+create or replace function public.live_board_(p_session uuid) returns jsonb
+language sql stable security definer set search_path = public as $$
+  select coalesce(jsonb_agg(jsonb_build_object('name', live_show_name_(name, flag), 'score', score, 'rank', rank,
+                                               'prev', prev_rank, 'streak', streak) order by rank, name), '[]'::jsonb)
+    from (select * from live_players where session_id = p_session and not banned and rank is not null
+           order by rank, name limit 10) t;
+$$;
 
 -- ---------- host: stop the timer and reveal ----------
 create or replace function public.live_reveal(p_session uuid)
@@ -253,26 +298,24 @@ begin
                  coalesce(an.points, 0) as pts, coalesce(an.ms, 0) as ms
             from live_players pl
             left join live_answers an on an.session_id = pl.session_id and an.user_id = pl.user_id and an.q_index = s.q_index
-           where pl.session_id = p_session) x
+           where pl.session_id = p_session and not pl.banned) x
    where p.session_id = p_session and p.user_id = x.user_id;
 
   update live_players p set prev_rank = p.rank, rank = r.rk
     from (select user_id, rank() over (order by score desc, total_ms asc) as rk
-            from live_players where session_id = p_session) r
+            from live_players where session_id = p_session and not banned) r
    where p.session_id = p_session and p.user_id = r.user_id;
 
   select coalesce(jsonb_object_agg(answer, c), '{}'::jsonb) into dist
     from (select answer, count(*) c from live_answers where session_id = p_session and q_index = s.q_index group by answer) d;
   select count(*), count(*) filter (where correct) into n_ans, n_ok
     from live_answers where session_id = p_session and q_index = s.q_index;
-  select count(*) into n_pl from live_players where session_id = p_session;
-  select jsonb_build_object('name', p.name, 'ms', a.ms) into fastest
+  select count(*) into n_pl from live_players where session_id = p_session and not banned;
+  select jsonb_build_object('name', live_show_name_(p.name, p.flag), 'ms', a.ms) into fastest
     from live_answers a join live_players p on p.session_id = a.session_id and p.user_id = a.user_id
-   where a.session_id = p_session and a.q_index = s.q_index and a.correct
+   where a.session_id = p_session and a.q_index = s.q_index and a.correct and not p.banned
    order by a.ms asc limit 1;
-  select coalesce(jsonb_agg(jsonb_build_object('name', name, 'score', score, 'rank', rank, 'prev', prev_rank, 'streak', streak)
-                  order by rank, name), '[]'::jsonb) into brd
-    from (select * from live_players where session_id = p_session order by rank, name limit 10) t;
+  brd := live_board_(p_session);
 
   rv := jsonb_build_object('q', s.q_index, 'type', k.type, 'ans', k.ans, 'tol', k.tol, 'dist', dist,
                            'answered', n_ans, 'correct', n_ok, 'players', n_pl, 'fastest', fastest);
@@ -293,16 +336,22 @@ begin
 end $$;
 
 -- ---------- host: live counts while a question is open (and lobby names) ----------
+-- names: only names safe to show on the shared screen; flagged: how many need a look (no names)
 create or replace function public.live_host_stats(p_session uuid)
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare s live_sessions; r jsonb;
 begin
   s := live_host_(p_session);
   select jsonb_build_object(
-    'players',  (select count(*) from live_players where session_id = p_session),
-    'answered', (select count(*) from live_answers where session_id = p_session and q_index = s.q_index),
-    'names',    (select coalesce(jsonb_agg(name order by joined_at), '[]'::jsonb)
-                   from (select name, joined_at from live_players where session_id = p_session order by joined_at limit 300) n),
+    'players',  (select count(*) from live_players where session_id = p_session and not banned),
+    'answered', (select count(*) from live_answers a join live_players p on p.session_id = a.session_id and p.user_id = a.user_id
+                  where a.session_id = p_session and a.q_index = s.q_index and not p.banned),
+    'names',    case when coalesce((s.settings ->> 'hideNames')::boolean, false) then '[]'::jsonb else
+                (select coalesce(jsonb_agg(name order by joined_at), '[]'::jsonb)
+                   from (select name, joined_at from live_players
+                          where session_id = p_session and not banned and flag < 6 order by joined_at limit 300) n) end,
+    'flagged',  (select count(*) from live_players where session_id = p_session and not banned and flag >= 3),
+    'settings', s.settings,
     'now', now())
   into r;
   return r;
@@ -317,6 +366,7 @@ begin
   if not found then raise exception 'Quiz not found'; end if;
   select * into p from live_players where session_id = p_session and user_id = auth.uid();
   if not found then return jsonb_build_object('joined', false); end if;
+  if p.banned then return jsonb_build_object('joined', true, 'banned', true, 'name', p.name); end if;
   select * into a from live_answers where session_id = p_session and user_id = auth.uid() and q_index = s.q_index;
   if found then
     if s.status = 'question' then last := jsonb_build_object('q', a.q_index, 'answer', a.answer);
@@ -325,7 +375,7 @@ begin
   end if;
   return jsonb_build_object('joined', true, 'name', p.name, 'score', p.score, 'rank', p.rank, 'prev', p.prev_rank,
                             'streak', p.streak, 'correct', p.correct, 'answered', p.answered,
-                            'players', (select count(*) from live_players where session_id = p_session),
+                            'players', (select count(*) from live_players where session_id = p_session and not banned),
                             'last', last);
 end $$;
 
@@ -337,6 +387,7 @@ begin
   s := live_host_(p_session);
   select coalesce(jsonb_agg(jsonb_build_object(
            'name', p.name, 'score', p.score, 'rank', p.rank, 'correct', p.correct, 'answered', p.answered,
+           'removed', p.banned, 'flag', p.flag,
            'avg_ms', case when p.correct > 0 then p.total_ms / p.correct else null end,
            'email', (select email from auth.users u where u.id = p.user_id),
            'answers', (select coalesce(jsonb_object_agg(a.q_index::text,
@@ -408,3 +459,92 @@ end $$;
 
 revoke execute on function public.live_extend(uuid, int), public.live_my_history(), public.live_my_review(uuid) from public, anon;
 grant execute on function public.live_extend(uuid, int), public.live_my_history(), public.live_my_review(uuid) to authenticated;
+
+-- =====================================================================
+--  HOST CONTROL (live-control.html — open it on the phone while the laptop shares the screen)
+-- =====================================================================
+
+-- the host's running quiz (newest), so the phone finds it without typing anything
+create or replace function public.live_active()
+returns jsonb language plpgsql stable security definer set search_path = public as $$
+declare s live_sessions;
+begin
+  if not live_is_admin() then raise exception 'Only the quiz host can do this'; end if;
+  select * into s from live_sessions where host = auth.uid() and status <> 'ended' order by created_at desc limit 1;
+  if not found then return null; end if;
+  return jsonb_build_object('id', s.id, 'code', s.code, 'title', s.title, 'status', s.status, 'q_index', s.q_index,
+                            'q_total', s.q_total, 'settings', s.settings);
+end $$;
+
+-- every player with email, score and spam flag
+create or replace function public.live_players_admin(p_session uuid)
+returns jsonb language plpgsql security definer set search_path = public, auth as $$
+declare s live_sessions; r jsonb;
+begin
+  s := live_host_(p_session);
+  select coalesce(jsonb_agg(jsonb_build_object(
+           'user_id', p.user_id, 'name', p.name, 'email', u.email, 'score', p.score, 'rank', p.rank,
+           'correct', p.correct, 'answered', p.answered, 'joined_at', p.joined_at, 'banned', p.banned,
+           'flag', p.flag, 'why', p.flag_why,
+           'google', exists (select 1 from auth.identities i where i.user_id = p.user_id and i.provider = 'google'),
+           'blocked', exists (select 1 from blocked_users b where b.user_id = p.user_id))
+         order by p.banned, p.flag desc, p.joined_at desc), '[]'::jsonb)
+    into r
+    from live_players p left join auth.users u on u.id = p.user_id
+   where p.session_id = p_session;
+  return jsonb_build_object('status', s.status, 'q_index', s.q_index, 'q_total', s.q_total, 'code', s.code,
+                            'title', s.title, 'settings', s.settings, 'players', r, 'now', now());
+end $$;
+
+-- ranks and leaderboard again, without removed players
+create or replace function public.live_rerank_(p_session uuid) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  update live_players set rank = null where session_id = p_session and banned;
+  update live_players p set rank = r.rk
+    from (select user_id, rank() over (order by score desc, total_ms asc) as rk
+            from live_players where session_id = p_session and not banned and rank is not null) r
+   where p.session_id = p_session and p.user_id = r.user_id;
+  update live_sessions set board = live_board_(p_session) where id = p_session and board is not null;
+end $$;
+
+-- remove (p_ban = true) or bring back (false) a player
+create or replace function public.live_kick(p_session uuid, p_user uuid, p_ban boolean default true)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare s live_sessions;
+begin
+  s := live_host_(p_session);
+  update live_players set banned = p_ban where session_id = p_session and user_id = p_user;
+  if not found then raise exception 'This player is not in the quiz'; end if;
+  if p_ban then delete from live_answers where session_id = p_session and user_id = p_user and q_index = s.q_index; end if;
+  perform live_rerank_(p_session);
+  -- kv tells the removed phone to check itself (one small refresh for everyone)
+  update live_sessions
+     set settings = jsonb_set(settings, '{kv}', to_jsonb(coalesce((settings ->> 'kv')::int, 0) + 1)),
+         v = v + 1, updated_at = now()
+   where id = p_session;
+  return jsonb_build_object('ok', true);
+end $$;
+
+-- switches: locked (no new players), googleOnly, hideNames (lobby names off the shared screen)
+create or replace function public.live_set(p_session uuid, p_patch jsonb)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare s live_sessions; k text; st jsonb;
+begin
+  s := live_host_(p_session);
+  st := s.settings;
+  for k in select jsonb_object_keys(coalesce(p_patch, '{}'::jsonb)) loop
+    if k in ('locked', 'googleOnly', 'hideNames') then
+      st := jsonb_set(st, array[k], to_jsonb(coalesce((p_patch ->> k)::boolean, false)));
+    end if;
+  end loop;
+  update live_sessions set settings = st, updated_at = now() where id = p_session;   -- no v bump: students need not reload
+  return st;
+end $$;
+
+revoke execute on function public.live_active(), public.live_players_admin(uuid), public.live_kick(uuid, uuid, boolean),
+                           public.live_set(uuid, jsonb), public.live_rerank_(uuid), public.live_board_(uuid)
+  from public, anon;
+grant execute on function public.live_active(), public.live_players_admin(uuid), public.live_kick(uuid, uuid, boolean),
+                          public.live_set(uuid, jsonb)
+  to authenticated;

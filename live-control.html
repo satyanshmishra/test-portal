@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#0a0f1f">
+<title>Live Quiz — Host Control</title>
+<link rel="stylesheet" href="assets/live.css">
+<script src="config.js"></script>
+<script src="assets/supabase.js"></script>
+<script src="assets/live-common.js"></script>
+<style>
+body{font-size:15px}
+.bar{position:sticky;top:0;z-index:20;background:rgba(10,15,31,.96);border-bottom:1px solid var(--line);padding:10px 14px}
+.bar .row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.tabs{display:flex;gap:6px;margin-top:10px;overflow-x:auto}
+.tab{flex:0 0 auto;background:var(--card2);border:1.5px solid var(--line);color:var(--muted);padding:8px 13px;border-radius:10px;font-weight:700;position:relative}
+.tab.on{background:var(--cyan);color:#0a0f1f;border-color:var(--cyan)}
+.badge{display:inline-block;min-width:20px;padding:1px 6px;border-radius:12px;background:var(--pink);color:#fff;font-size:12px;font-weight:800;margin-left:4px}
+.badge:empty{display:none}
+.page{display:none;padding:14px;max-width:760px;margin:0 auto;width:100%}
+.page.on{display:block}
+.qinfo{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+.sw{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;background:var(--card);border:1px solid var(--line);border-radius:14px;margin-bottom:8px}
+.sw b{display:block} .sw small{color:var(--muted)}
+.tg{position:relative;width:52px;height:30px;flex:0 0 auto}
+.tg input{opacity:0;width:0;height:0}
+.tg span{position:absolute;inset:0;background:var(--card2);border:1.5px solid var(--line);border-radius:30px;transition:.15s}
+.tg span:before{content:"";position:absolute;width:22px;height:22px;left:3px;top:2.5px;background:var(--muted);border-radius:50%;transition:.15s}
+.tg input:checked + span{background:var(--grn);border-color:var(--grn)}
+.tg input:checked + span:before{transform:translateX(21px);background:#0a0f1f}
+.search{width:100%;padding:11px 13px;border-radius:12px;border:1.5px solid var(--line);background:var(--bg2);color:var(--ink);font-size:16px;margin:8px 0 10px}
+.pl{display:flex;align-items:center;gap:10px;padding:11px 12px;border:1px solid var(--line);border-radius:14px;background:var(--card);margin-bottom:8px}
+.pl.flag{border-color:#a8453f;background:#2a1a2a}
+.pl.gone{opacity:.55}
+.pl .who{flex:1;min-width:0}
+.pl .nm{font-weight:800;overflow-wrap:anywhere}
+.pl .em{color:var(--muted);font-size:13px;overflow-wrap:anywhere}
+.pl .why{color:#ffb3bd;font-size:12.5px;margin-top:3px}
+.pl .act{display:flex;flex-direction:column;gap:6px;align-items:stretch}
+.tag{display:inline-block;font-size:11px;font-weight:800;padding:1px 7px;border-radius:8px;margin-left:4px;vertical-align:1px}
+.tag.g{background:#1d3a66;color:#9cc4ff} .tag.r{background:#5a2030;color:#ffd0d6} .tag.y{background:#4d3d10;color:#ffe08a}
+.empty{text-align:center;color:var(--muted);padding:30px 10px}
+.toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%) translateY(200%);visibility:hidden;z-index:60;background:#1b2647;border:1px solid var(--line);
+  color:var(--ink);padding:12px 16px;border-radius:14px;font-weight:700;display:flex;gap:12px;align-items:center;transition:transform .25s;max-width:92vw}
+.toast.show{transform:translateX(-50%) translateY(0);visibility:visible}
+.alert-new{position:fixed;top:0;left:0;right:0;z-index:70;background:var(--pink);color:#fff;padding:12px 14px;font-weight:800;display:none;align-items:center;gap:10px}
+.alert-new.on{display:flex}
+.wrow{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:4px 6px 4px 10px;border-radius:20px;background:var(--card2);border:1px solid var(--line);font-size:13px;font-weight:700}
+.chip button{background:none;border:0;color:var(--muted);font-weight:900;padding:0 4px}
+.addrow{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 14px}
+.addrow input,.addrow select{padding:10px 12px;border-radius:10px;border:1.5px solid var(--line);background:var(--bg2);color:var(--ink);font-size:15px}
+.addrow input{flex:1;min-width:140px}
+h3{font-size:16px;margin:18px 0 6px}
+</style>
+</head>
+<body>
+<div class="net" id="net">Reconnecting…</div>
+<div class="alert-new" id="alertNew"><span style="flex:1" id="alertTxt"></span><button class="btn sm" id="alertGo" style="background:#fff">See</button></div>
+
+<!-- login -->
+<section class="screen" id="sLogin">
+  <div class="center"><div style="width:100%;max-width:420px">
+    <div class="brand">Live Quiz · Host Control</div>
+    <h1 style="margin-top:8px">Control from your phone</h1>
+    <p class="muted">Log in with the same host account as the laptop. The laptop keeps sharing a clean screen; you remove players and close entry from here.</p>
+    <form class="card" id="loginForm" novalidate style="margin-top:14px;text-align:left">
+      <div id="loginMsg"></div>
+      <div class="field"><label for="lEmail">Email</label><input id="lEmail" type="email" autocomplete="email"></div>
+      <div class="field"><label for="lPass">Password</label><input id="lPass" type="password" autocomplete="current-password"></div>
+      <button class="btn big" style="width:100%" type="submit">Log in →</button>
+    </form>
+  </div></div>
+</section>
+
+<!-- app -->
+<section class="screen" id="sApp">
+  <div class="bar">
+    <div class="row">
+      <div><div class="brand">Host Control</div><div style="font-weight:800" id="hdTitle">No quiz running</div></div>
+      <div style="display:flex;gap:6px">
+        <button class="btn ghost sm" id="notifBtn" title="Phone notifications">🔔</button>
+        <button class="btn ghost sm" id="sndBtn" title="Sound">🔊</button>
+        <button class="btn ghost sm" id="outBtn">Log out</button>
+      </div>
+    </div>
+    <div class="tabs">
+      <button class="tab on" data-p="pLive">Live quiz <span class="badge" id="bLive"></span></button>
+      <button class="tab" data-p="pAlerts">Spam alerts <span class="badge" id="bAlerts"></span></button>
+      <button class="tab" data-p="pScan">All accounts</button>
+      <button class="tab" data-p="pWords">Words</button>
+    </div>
+  </div>
+
+  <!-- live quiz -->
+  <div class="page on" id="pLive">
+    <div id="noQuiz" class="empty">No live quiz is running.<br>Create one on the laptop (live-host.html); it shows up here by itself.</div>
+    <div id="liveBox" style="display:none">
+      <div class="qinfo">
+        <span class="pill">Code <b style="color:var(--yel)" id="lvCode"></b></span>
+        <span class="pill" id="lvStage"></span>
+        <span class="pill">👥 <b style="color:var(--ink)" id="lvCount">0</b></span>
+        <span class="pill" id="lvFlag" style="display:none;color:#ffb3bd"></span>
+      </div>
+      <label class="sw"><div><b>🔒 Close entry</b><small>No new player can join. Players already in can reconnect.</small></div>
+        <span class="tg"><input type="checkbox" id="swLocked"><span></span></span></label>
+      <label class="sw"><div><b>🙈 Hide names on the shared screen</b><small>The lobby shows only the count.</small></div>
+        <span class="tg"><input type="checkbox" id="swHide"><span></span></span></label>
+      <label class="sw"><div><b>🟢 Google accounts only</b><small>New players must log in with "Continue with Google" (their real Google name).</small></div>
+        <span class="tg"><input type="checkbox" id="swGoogle"><span></span></span></label>
+      <input class="search" id="q" placeholder="Search name or email" autocomplete="off">
+      <div id="plist"></div>
+    </div>
+  </div>
+
+  <!-- alerts -->
+  <div class="page" id="pAlerts">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+      <p class="muted" style="margin:0">Suspicious sign-ups, name changes and quiz joins.</p>
+      <button class="btn ghost sm" id="seenBtn">Mark all seen</button>
+    </div>
+    <div id="alist" style="margin-top:10px"></div>
+  </div>
+
+  <!-- scan -->
+  <div class="page" id="pScan">
+    <p class="muted" style="margin-top:0">Checks every account in the database against the word lists, junk-name rules and temporary-email domains.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <button class="btn yel" id="scanBtn">🔍 Scan all accounts</button>
+      <select id="scanMin" class="search" style="width:auto;margin:0">
+        <option value="3">Suspicious and worse</option><option value="6">Junk / fake and worse</option><option value="10">Only abusive</option>
+      </select>
+    </div>
+    <div id="slist" style="margin-top:12px"></div>
+  </div>
+
+  <!-- words -->
+  <div class="page" id="pWords">
+    <h3>Blocked words</h3>
+    <p class="muted" style="margin:0 0 6px;font-size:13.5px"><b>Anywhere</b> = caught even inside other text ("fuckboy", "f.u.c.k", "chuuutiya"). <b>Whole word</b> = only as a separate word (use for short words like "gand" that hide inside real names like "Sugandh").</p>
+    <div class="addrow">
+      <input id="wNew" placeholder="new word (English / Hinglish / हिंदी)">
+      <select id="wMode"><option value="sub">Anywhere</option><option value="token">Whole word</option></select>
+      <select id="wW"><option value="10">Abusive (refuse)</option><option value="6">Junk / fake</option><option value="3">Just alert</option></select>
+      <button class="btn grn sm" id="wAdd">Add</button>
+    </div>
+    <input class="search" id="wq" placeholder="Search the list" autocomplete="off">
+    <div class="wrow" id="wlist"></div>
+    <h3>Real names that are allowed</h3>
+    <p class="muted" style="margin:0 0 6px;font-size:13.5px">If a real student's name gets caught, add that part of the name here (e.g. "gandhi", "kamini").</p>
+    <div class="addrow"><input id="sNew" placeholder="allowed name part"><button class="btn grn sm" id="sAdd">Add</button></div>
+    <div class="wrow" id="safelist"></div>
+    <h3>Temporary / fake email domains</h3>
+    <div class="addrow"><input id="dNew" placeholder="e.g. tempmail.com"><button class="btn grn sm" id="dAdd">Add</button></div>
+    <div class="wrow" id="dlist"></div>
+  </div>
+</section>
+
+<div class="toast" id="toast"><span id="toastTxt"></span><button class="linkbtn" id="toastBtn" style="display:none">Undo</button></div>
+
+<script>
+const { $, esc, LS, SB, rpc, SFX, setSound } = LIVE;
+let SID = null, LIVEST = null, PLAYERS = [], SEEN_FLAG = new Set(), FIRST = true;
+let LAST_ALERT = 0, ALERTS = [], POLL = null, APOLL = null, WORDS = null;
+
+function show(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('on', s.id===id)); }
+function msg(el, t, kind){ $(el).innerHTML = t ? `<div class="msg ${kind||'bad'}">${esc(t)}</div>` : ''; }
+function when(t){ const d=new Date(t); return d.toLocaleString([], {day:'numeric', month:'short', hour:'numeric', minute:'2-digit'}); }
+let toastT=null;
+function toast(t, undo, ms){
+  $('toastTxt').textContent=t; const b=$('toastBtn');
+  b.style.display = undo ? '' : 'none'; b.onclick = undo ? ()=>{ $('toast').classList.remove('show'); undo(); } : null;
+  $('toast').classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>$('toast').classList.remove('show'), ms|| (undo?6000:3000));
+}
+function reasonsTxt(r){ return (r||[]).map(x=>String(x).replace(/^word: /,'“')+(String(x).startsWith('word: ')?'”':'')).join(' · '); }
+function levelTag(sc){ return sc>=10 ? '<span class="tag r">high risk</span>' : sc>=6 ? '<span class="tag r">junk / fake</span>' : sc>=3 ? '<span class="tag y">suspicious</span>' : ''; }
+
+/* ---------- alarms: sound, vibration, phone notification, red banner ---------- */
+function alarm(text, page){
+  SFX.wrong(); setTimeout(SFX.wrong, 250);
+  if(navigator.vibrate) navigator.vibrate([200,100,200]);
+  $('alertTxt').textContent = '⚠️ ' + text; $('alertNew').classList.add('on');
+  $('alertGo').onclick = ()=>{ $('alertNew').classList.remove('on'); tab(page); };
+  try{
+    if('Notification' in window && Notification.permission==='granted' && document.visibilityState!=='visible')
+      new Notification('Spammer detected', { body: text, tag: 'spam-'+Date.now() });
+  }catch(e){}
+}
+$('notifBtn').onclick = async ()=>{
+  if(!('Notification' in window)) return toast('This browser has no notifications. Keep this page open; it beeps and vibrates.');
+  const p = await Notification.requestPermission();
+  toast(p==='granted' ? '🔔 Notifications on (while this page is open in the background).' : 'Notifications are blocked in the browser settings.');
+};
+$('sndBtn').onclick = ()=>{ setSound(!LIVE.sound); $('sndBtn').textContent = LIVE.sound?'🔊':'🔇'; };
+$('sndBtn').textContent = LIVE.sound?'🔊':'🔇';
+
+/* ---------- tabs ---------- */
+function tab(id){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on', t.dataset.p===id));
+  document.querySelectorAll('.page').forEach(p=>p.classList.toggle('on', p.id===id));
+  if(id==='pWords' && !WORDS) loadWords();
+  if(id==='pAlerts') drawAlerts();
+}
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>tab(t.dataset.p));
+
+/* ---------- login ---------- */
+$('loginForm').addEventListener('submit', async e=>{
+  e.preventDefault(); msg('loginMsg','');
+  const { error } = await SB.auth.signInWithPassword({ email:$('lEmail').value.trim(), password:$('lPass').value });
+  if(error) return msg('loginMsg','Login failed: '+error.message);
+  start();
+});
+$('outBtn').onclick = async ()=>{ clearInterval(POLL); clearInterval(APOLL); await SB.auth.signOut().catch(()=>{}); show('sLogin'); };
+
+async function start(){
+  try{ if(!await rpc('live_is_admin')){ show('sLogin'); return msg('loginMsg','This account is not a quiz host.'); } }
+  catch(e){ show('sLogin'); return msg('loginMsg', e.message); }
+  show('sApp');
+  clearInterval(POLL); POLL = setInterval(pollLive, 2000); pollLive();
+  clearInterval(APOLL); APOLL = setInterval(pollAlerts, 8000); pollAlerts();
+}
+
+/* ---------- live quiz ---------- */
+let BUSY = false;
+async function pollLive(){
+  if(BUSY) return; BUSY = true;
+  try{
+    if(!SID){
+      const a = await rpc('live_active', {}, 0);
+      if(!a){ $('noQuiz').style.display=''; $('liveBox').style.display='none'; $('hdTitle').textContent='No quiz running'; $('bLive').textContent=''; BUSY=false; return; }
+      SID = a.id; SEEN_FLAG = new Set(); FIRST = true;
+    }
+    const r = await rpc('live_players_admin', { p_session: SID }, 0);
+    $('net').classList.remove('on');
+    if(r.status==='ended'){ SID=null; BUSY=false; return; }
+    LIVEST = r; PLAYERS = r.players || [];
+    drawLive();
+    // newly flagged players
+    const fresh = PLAYERS.filter(p=>!p.banned && p.flag>=3 && !SEEN_FLAG.has(p.user_id));
+    fresh.forEach(p=>SEEN_FLAG.add(p.user_id));
+    if(fresh.length && !FIRST) alarm(fresh.length===1 ? `${fresh[0].name} joined the quiz` : `${fresh.length} suspicious players joined`, 'pLive');
+    FIRST = false;
+  }catch(e){
+    $('net').classList.add('on');
+    if(/not found|Only the quiz host/i.test(e.message)) SID = null;
+  }
+  BUSY = false;
+}
+function stageTxt(r){
+  if(r.status==='lobby') return 'Lobby';
+  if(r.status==='ended') return 'Ended';
+  return `Q ${Math.max(1, r.q_index+1)} / ${r.q_total} · ${r.status}`;
+}
+function drawLive(){
+  const r = LIVEST, st = r.settings || {};
+  $('noQuiz').style.display='none'; $('liveBox').style.display='';
+  $('hdTitle').textContent = r.title; $('lvCode').textContent = r.code; $('lvStage').textContent = stageTxt(r);
+  const live = PLAYERS.filter(p=>!p.banned), flagged = live.filter(p=>p.flag>=3);
+  $('lvCount').textContent = live.length;
+  $('lvFlag').style.display = flagged.length ? '' : 'none'; $('lvFlag').textContent = '⚠️ ' + flagged.length + ' suspicious';
+  $('bLive').textContent = flagged.length || '';
+  if(document.activeElement !== $('swLocked')) $('swLocked').checked = !!st.locked;
+  if(document.activeElement !== $('swHide'))   $('swHide').checked   = !!st.hideNames;
+  if(document.activeElement !== $('swGoogle')) $('swGoogle').checked = !!st.googleOnly;
+  const q = $('q').value.trim().toLowerCase();
+  const list = PLAYERS.filter(p=>!q || (p.name||'').toLowerCase().includes(q) || (p.email||'').toLowerCase().includes(q));
+  $('plist').innerHTML = list.length ? list.map(p=>`
+    <div class="pl ${p.banned?'gone':p.flag>=3?'flag':''}">
+      <div class="who">
+        <div class="nm">${esc(p.name)}${p.google?'<span class="tag g">Google</span>':''}${p.banned?'<span class="tag r">removed</span>':levelTag(p.flag)}${p.blocked?'<span class="tag r">blocked</span>':''}</div>
+        <div class="em">${esc(p.email||'')} · ${p.score} pts${p.rank?' · #'+p.rank:''}</div>
+        ${p.flag>=3 ? `<div class="why">${esc(reasonsTxt(p.why))}</div>` : ''}
+      </div>
+      <div class="act">
+        ${p.banned ? `<button class="btn ghost sm" data-back="${p.user_id}">Bring back</button>`
+                   : `<button class="btn pink sm" data-kick="${p.user_id}">Remove</button>`}
+        ${p.blocked ? `<button class="btn ghost sm" data-unblock="${p.user_id}">Unblock</button>`
+                    : `<button class="btn ghost sm" data-block="${p.user_id}" title="Block this account for all future quizzes">Block</button>`}
+      </div>
+    </div>`).join('') : `<div class="empty">${PLAYERS.length ? 'No match.' : 'Nobody has joined yet.'}</div>`;
+}
+$('q').addEventListener('input', ()=>LIVEST && drawLive());
+
+async function kick(uid, ban){
+  const p = PLAYERS.find(x=>x.user_id===uid) || {};
+  try{
+    await rpc('live_kick', { p_session: SID, p_user: uid, p_ban: ban });
+    p.banned = ban; drawLive();
+    if(ban) toast(`Removed ${p.name}`, ()=>kick(uid, false)); else toast(`${p.name} is back`);
+  }catch(e){ toast(e.message); }
+}
+async function block(uid, on, name){
+  try{
+    await rpc('user_block', { p_user: uid, p_on: on, p_reason: 'spam' });
+    PLAYERS.forEach(x=>{ if(x.user_id===uid) x.blocked = on; });
+    ALERTS.forEach(x=>{ if(x.user_id===uid) x.blocked = on; });
+    SCAN.forEach(x=>{ if(x.user_id===uid) x.blocked = on; });
+    if(on && SID && PLAYERS.some(x=>x.user_id===uid && !x.banned)) await kick(uid, true);
+    if(LIVEST) drawLive(); drawAlerts(); drawScan();
+    toast(on ? `Blocked ${name||''}: no more quizzes; asked to use real name and email at login.` : `Unblocked ${name||''}`, on ? ()=>block(uid,false,name) : null);
+  }catch(e){ toast(e.message); }
+}
+document.addEventListener('click', e=>{
+  const t = e.target.closest('button'); if(!t) return;
+  const nm = id => ((PLAYERS.find(x=>x.user_id===id)||ALERTS.find(x=>x.user_id===id)||SCAN.find(x=>x.user_id===id)||{}).name);
+  if(t.dataset.kick) kick(t.dataset.kick, true);
+  if(t.dataset.back) kick(t.dataset.back, false);
+  if(t.dataset.block) block(t.dataset.block, true, nm(t.dataset.block));
+  if(t.dataset.unblock) block(t.dataset.unblock, false, nm(t.dataset.unblock));
+});
+async function setSw(key, el){
+  if(!SID) return;
+  try{ const st = await rpc('live_set', { p_session: SID, p_patch: { [key]: el.checked } }); if(LIVEST) LIVEST.settings = st;
+       toast({locked: el.checked?'🔒 Entry closed':'Entry open again', hideNames: el.checked?'Names hidden on the shared screen':'Names shown on the shared screen',
+              googleOnly: el.checked?'Only Google accounts can join now':'Any account can join'}[key]); }
+  catch(e){ el.checked = !el.checked; toast(e.message); }
+}
+$('swLocked').onchange = e=>setSw('locked', e.target);
+$('swHide').onchange   = e=>setSw('hideNames', e.target);
+$('swGoogle').onchange = e=>setSw('googleOnly', e.target);
+
+/* ---------- spam alerts ---------- */
+async function pollAlerts(){
+  try{
+    const r = await rpc('spam_alerts_list', { p_after: LAST_ALERT }, 0);
+    const fresh = (r.alerts||[]).filter(a=>a.id>LAST_ALERT);
+    if(fresh.length){
+      const firstLoad = LAST_ALERT===0;
+      ALERTS = fresh.concat(ALERTS).slice(0, 200);
+      LAST_ALERT = Math.max(...ALERTS.map(a=>a.id));
+      const outside = fresh.filter(a=>!a.seen && a.source!=='live_join');
+      if(!firstLoad && outside.length) alarm(outside.length===1 ? `Suspicious ${outside[0].source==='signup'?'sign-up':'name change'}: ${outside[0].name}` : `${outside.length} new spam alerts`, 'pAlerts');
+      drawAlerts();
+    }
+    $('bAlerts').textContent = r.unseen || '';
+  }catch(e){
+    if(/spam_alerts_list|not set up/i.test(e.message)) $('alist').innerHTML = '<div class="msg bad">Run backend/spam_guard.sql in Supabase first.</div>';
+  }
+}
+const SRC = { signup:'Sign-up', name_change:'Name changed', live_join:'Joined live quiz' };
+function drawAlerts(){
+  $('alist').innerHTML = ALERTS.length ? ALERTS.map(a=>`
+    <div class="pl ${a.blocked?'gone':a.seen?'':'flag'}">
+      <div class="who">
+        <div class="nm">${esc(a.name||'(no name)')}${levelTag(a.score)}${a.blocked?'<span class="tag r">blocked</span>':''}</div>
+        <div class="em">${esc(a.email||'')} · ${SRC[a.source]||a.source} · ${when(a.at)}</div>
+        ${a.now_name && a.now_name!==a.name ? `<div class="em">Name now: ${esc(a.now_name)}</div>`:''}
+        <div class="why">${esc(reasonsTxt(a.reasons))}</div>
+      </div>
+      <div class="act">${a.user_id ? (a.blocked ? `<button class="btn ghost sm" data-unblock="${a.user_id}">Unblock</button>` : `<button class="btn pink sm" data-block="${a.user_id}">Block</button>`) : ''}</div>
+    </div>`).join('') : '<div class="empty">No spam alerts. 🎉</div>';
+}
+$('seenBtn').onclick = async ()=>{ try{ await rpc('spam_alerts_seen', { p_ids: null }); ALERTS.forEach(a=>a.seen=true); drawAlerts(); $('bAlerts').textContent=''; }catch(e){ toast(e.message); } };
+
+/* ---------- scan all accounts ---------- */
+let SCAN = [];
+$('scanBtn').onclick = async ()=>{
+  $('scanBtn').disabled = true; $('slist').innerHTML = '<div class="empty">Checking every account…</div>';
+  try{ SCAN = await rpc('spam_scan', { p_min: +$('scanMin').value }) || []; drawScan(); }
+  catch(e){ $('slist').innerHTML = `<div class="msg bad">${esc(e.message)}</div>`; }
+  $('scanBtn').disabled = false;
+};
+function drawScan(){
+  if(!$('slist').innerHTML && !SCAN.length) return;
+  const open = SCAN.filter(s=>!s.blocked).length;
+  $('slist').innerHTML = (SCAN.length ? `<p class="muted">${SCAN.length} account(s) found · ${open} not blocked yet</p>` : '') + (SCAN.length ? SCAN.map(s=>`
+    <div class="pl ${s.blocked?'gone':'flag'}">
+      <div class="who">
+        <div class="nm">${esc(s.name)}${s.google?'<span class="tag g">Google</span>':''}${levelTag(s.score)}${s.blocked?'<span class="tag r">blocked</span>':''}</div>
+        <div class="em">${esc(s.email||'')} · joined ${when(s.created_at)}${s.last_sign_in_at?' · last login '+when(s.last_sign_in_at):''}</div>
+        <div class="why">${esc(reasonsTxt(s.reasons))}</div>
+      </div>
+      <div class="act">${s.blocked ? `<button class="btn ghost sm" data-unblock="${s.user_id}">Unblock</button>` : `<button class="btn pink sm" data-block="${s.user_id}">Block</button>`}</div>
+    </div>`).join('') : '<div class="empty">No suspicious accounts found. 🎉</div>');
+}
+
+/* ---------- word lists ---------- */
+async function loadWords(){
+  try{ WORDS = await rpc('spam_words_list'); drawWords(); }
+  catch(e){ $('wlist').innerHTML = `<div class="msg bad">${esc(e.message)}</div>`; }
+}
+function drawWords(){
+  if(!WORDS) return;
+  const q = $('wq').value.trim().toLowerCase();
+  const W = WORDS.words.filter(w=>!q || w.word.includes(q));
+  $('wlist').innerHTML = W.map(w=>`<span class="chip" title="${w.mode==='token'?'whole word':'anywhere'} · weight ${w.weight}">${esc(w.word)}${w.mode==='token'?' <small class="muted">(word)</small>':''}${w.weight<10?` <small class="muted">${w.weight}</small>`:''}<button data-wdel="word" data-w="${esc(w.word)}">×</button></span>`).join('') || '<span class="muted">No match.</span>';
+  $('safelist').innerHTML = WORDS.safe.map(w=>`<span class="chip">${esc(w)}<button data-wdel="safe" data-w="${esc(w)}">×</button></span>`).join('');
+  $('dlist').innerHTML = WORDS.domains.map(w=>`<span class="chip">${esc(w)}<button data-wdel="domain" data-w="${esc(w)}">×</button></span>`).join('');
+}
+$('wq').addEventListener('input', drawWords);
+async function wordSet(kind, word, on, mode, weight){
+  if(!word.trim()) return;
+  try{ await rpc('spam_word_set', { p_kind: kind, p_word: word, p_on: on, p_mode: mode||'sub', p_weight: weight||10 }); await loadWords(); toast(on ? 'Added' : 'Removed'); }
+  catch(e){ toast(e.message); }
+}
+$('wAdd').onclick = ()=>{ wordSet('word', $('wNew').value, true, $('wMode').value, +$('wW').value); $('wNew').value=''; };
+$('sAdd').onclick = ()=>{ wordSet('safe', $('sNew').value, true); $('sNew').value=''; };
+$('dAdd').onclick = ()=>{ wordSet('domain', $('dNew').value, true); $('dNew').value=''; };
+[['wNew','wAdd'],['sNew','sAdd'],['dNew','dAdd']].forEach(([i,b])=>$(i).addEventListener('keydown',e=>{ if(e.key==='Enter') $(b).click(); }));
+document.addEventListener('click', e=>{
+  const b = e.target.closest('[data-wdel]'); if(!b) return;
+  if(confirm(`Remove "${b.dataset.w}" from the list?`)) wordSet(b.dataset.wdel, b.dataset.w, false);
+});
+
+/* ---------- boot ---------- */
+(async function(){
+  if(!SB){ show('sLogin'); return msg('loginMsg','The quiz server is not connected.'); }
+  const { data } = await SB.auth.getSession();
+  if(data.session) start(); else show('sLogin');
+})();
+</script>
+</body>
+</html>

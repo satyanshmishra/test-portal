@@ -10,6 +10,10 @@ window.APP_CONFIG = {
   SUPABASE_URL: "https://axznixboebvixkigojvj.supabase.co",
   SUPABASE_KEY: "sb_publishable_g3vreHGOHm7lu4b91Qtahw_4uH-loXh",
 
+  /* "Continue with Google" button on the login / sign-up pages and the Live Quiz.
+     Switch to true only AFTER Google is turned on in Supabase → Authentication → Sign In / Providers → Google. */
+  GOOGLE_LOGIN: false,
+
   /* Folders students see after login. "id" must match the paper's category.
      practice: true = sheet folder: no timer, no single attempt, every question checked instantly. */
   FOLDERS: [

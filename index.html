@@ -40,6 +40,8 @@ window.MathJax = {
           <input id="lPass" type="password" autocomplete="current-password" placeholder="Your password" maxlength="72">
           <div class="err" id="lErr"></div></div>
         <button class="btn" type="submit">Log in →</button>
+        <div class="gwrap" hidden><div class="or-line"><span>or</span></div>
+          <button type="button" class="btn ghost gbtn">Continue with Google</button></div>
         <p class="alinks"><button type="button" class="linkbtn" data-av="vForgot">Forgot password?</button></p>
         <p class="alinks">New here? <button type="button" class="linkbtn" data-av="vSignup">Create an account</button></p>
       </form>
@@ -48,8 +50,12 @@ window.MathJax = {
       <form class="aview" id="vSignup" novalidate hidden>
         <h1>Create Account</h1>
         <p class="sub">One account works for both the Test Portal and the Doubt Portal.</p>
+        <div class="gwrap gtop" hidden><div class="or-line"><span>or</span></div>
+          <button type="button" class="btn ghost gbtn">Continue with Google</button></div>
+        <p class="sub ghint" hidden style="margin:10px 0 16px;font-size:13.5px">Google fills in your real name. Or create an account with email:</p>
         <div class="field"><label for="sName">Full Name</label>
-          <input id="sName" type="text" autocomplete="name" placeholder="Enter your full name" maxlength="60"></div>
+          <input id="sName" type="text" autocomplete="name" placeholder="Enter your full name" maxlength="60">
+          <small class="fhint">Your real name as in school records. It is shown in live quizzes. Fake or rude names are blocked.</small></div>
         <div class="field"><label for="sPhone">Mobile Number</label>
           <input id="sPhone" type="tel" inputmode="numeric" autocomplete="tel" placeholder="10-digit mobile number" maxlength="15">
           <small class="fhint">Use the same number you used for earlier tests, so your old results appear in your account.</small></div>
@@ -71,6 +77,14 @@ window.MathJax = {
         <div class="resume-note">Can't find it? Check the <b>Spam</b> or <b>Promotions</b> folder. The email comes from Satyansh Mishra.</div>
         <button class="btn light" type="button" id="resendBtn">Resend confirmation email</button>
         <p class="alinks"><button type="button" class="linkbtn" data-av="vLogin">← Back to login</button></p>
+      </div>
+
+      <!-- Account marked as spam by the teacher -->
+      <div class="aview" id="vBlocked" hidden>
+        <h1>Account Marked as Spam</h1>
+        <p class="sub">This account (<b class="js-uemail"></b>) was marked as spam because of its name or email.</p>
+        <div class="resume-note">Please log in with <b>your real name and your own email</b><span class="gonly"> — or use <b>Continue with Google</b></span>. If this is a mistake, tell your teacher.</div>
+        <button class="btn" type="button" id="blockedOut">Log out</button>
       </div>
 
       <!-- Forgot password -->
@@ -101,7 +115,8 @@ window.MathJax = {
         <h1>Complete Your Profile</h1>
         <p class="sub">Logged in as <b class="js-uemail"></b>. Your name is printed on your test reports.</p>
         <div class="field"><label for="pName">Full Name</label>
-          <input id="pName" type="text" autocomplete="name" placeholder="Enter your full name" maxlength="60"></div>
+          <input id="pName" type="text" autocomplete="name" placeholder="Enter your full name" maxlength="60">
+          <small class="fhint" id="pNameHint" hidden>Taken from your Google account.</small></div>
         <div class="field"><label for="pPhone">Mobile Number</label>
           <input id="pPhone" type="tel" inputmode="numeric" autocomplete="tel" placeholder="10-digit mobile number" maxlength="15">
           <small class="fhint">Use the same number you used for earlier tests, so your old results appear in your account.</small>
@@ -485,6 +500,24 @@ function normPhone(v){
 }
 const okEmail = v => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v);
 const okName = v => v.length>=2 && /[A-Za-zऀ-ॿ]/.test(v);
+const REAL_NAME_MSG = 'Please enter your real full name (fake or rude names are not allowed).';
+/* the database checks names (rude words, "test", "asdf"…); if that check is not set up, allow */
+async function realNameOk(name, email){
+  if(!SB) return true;
+  try{ const { data, error } = await SB.rpc('name_check', { p_name:name, p_email:email||null }); if(error) return true; return !data || data.ok; }
+  catch(e){ return true; }
+}
+const isGoogle = u => !!(u && ((u.app_metadata && (u.app_metadata.providers||[]).includes('google')) || (u.identities||[]).some(i=>i.provider==='google')));
+/* Continue with Google (switch on GOOGLE_LOGIN in config.js after setting up Google in Supabase) */
+if(CFG.GOOGLE_LOGIN){
+  document.querySelectorAll('.gwrap,.ghint').forEach(e=>e.hidden=false);
+} else document.querySelectorAll('.gonly').forEach(e=>e.hidden=true);
+document.querySelectorAll('.gbtn').forEach(b=>b.addEventListener('click', async ()=>{
+  if(!SB) return;
+  busy(true,'Opening Google…');
+  const { error } = await SB.auth.signInWithOAuth({ provider:'google', options:{ redirectTo: SITE_URL } });
+  if(error){ busy(false); authMsg(niceErr(error),'err'); }
+}));
 const okPhone = v => /^[6-9]\d{9}$/.test(v);
 function authView(id){
   document.querySelectorAll('.aview').forEach(v=>v.hidden = v.id!==id);
@@ -502,6 +535,7 @@ function niceErr(err){
   if(/rate limit|too many|security purposes/i.test(m)) return 'Too many attempts. Please wait a minute and try again.';
   if(/password should be at least|weak password/i.test(m)) return 'Password must be at least 6 characters.';
   if(/failed to fetch|network/i.test(m)) return 'Could not connect. Check your internet and try again.';
+  if(/NAME_NOT_ALLOWED|database error saving new user|database error updating user/i.test(m)) return REAL_NAME_MSG;
   return m || 'Something went wrong. Please try again.';
 }
 document.querySelectorAll('[data-av]').forEach(b=>b.addEventListener('click',()=>{
@@ -540,6 +574,7 @@ $('vSignup').addEventListener('submit', async e=>{
   if(pass!==pass2) return E('The two passwords do not match.');
   if(!SB) return;
   busy(true,'Creating your account…');
+  if(!await realNameOk(name, email)){ busy(false); return E(REAL_NAME_MSG); }
   const { data, error } = await SB.auth.signUp({ email, password:pass,
     options:{ emailRedirectTo: SITE_URL, data:{ full_name:name, phone } } });
   busy(false);
@@ -594,6 +629,7 @@ $('vProfile').addEventListener('submit', async e=>{
   if(!okName(name)){ $('pErr').textContent='Please enter your full name.'; return; }
   if(!okPhone(phone)){ $('pErr').textContent='Please enter a valid 10-digit mobile number.'; return; }
   busy(true,'Saving…');
+  if(!$('pName').readOnly && !await realNameOk(name)){ busy(false); $('pErr').textContent=REAL_NAME_MSG; return; }
   const { error } = await SB.auth.updateUser({ data:{ full_name:name, phone } });
   if(error){ busy(false); $('pErr').textContent=niceErr(error); return; }
   await SB.auth.refreshSession().catch(()=>{});
@@ -610,6 +646,7 @@ async function logout(){
 }
 $('logoutBtn').addEventListener('click', logout);
 $('pLogout').addEventListener('click', logout);
+$('blockedOut').addEventListener('click', logout);
 
 /* A Supabase session exists: check it with the server, then open the portal */
 async function enter(session, log){
@@ -617,8 +654,14 @@ async function enter(session, log){
   const m = session.user.user_metadata || {};
   USER = { id:session.user.id, email:session.user.email, name:String(m.full_name||m.name||'').trim(), phone:normPhone(m.phone||'') };
   setUserUI();
-  if(!okName(USER.name) || !okPhone(USER.phone)){        // account made on the Doubt Portal
+  // the teacher marked this account as spam → ask for a real account
+  try{ const { data:st } = await SB.rpc('my_status'); if(st && st.blocked){
+    busy(false); document.querySelectorAll('.js-uemail').forEach(e=>e.textContent=USER.email);
+    authMsg(''); authView('vBlocked'); show('login'); return; } }catch(e){}
+  if(!okName(USER.name) || !okPhone(USER.phone)){        // account made on the Doubt Portal, or new Google login (no phone yet)
     busy(false); $('pName').value=USER.name; $('pPhone').value=USER.phone;
+    const g = isGoogle(session.user) && okName(USER.name);   // Google gives the real name: not editable here
+    $('pName').readOnly = g; $('pNameHint').hidden = !g;
     authMsg(''); authView('vProfile'); show('login'); return;
   }
   busy(true,'Opening your tests…');

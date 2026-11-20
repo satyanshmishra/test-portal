@@ -65,6 +65,8 @@ window.MathJax = {
   <div class="tools">
     <span class="pill" id="tbCode" style="display:none"></span>
     <span class="pill" id="tbPlayers" style="display:none"></span>
+    <span class="pill" id="tbFlag" style="display:none;color:#ffb3bd;border-color:#a8453f" title="Suspicious players: open Host Control on your phone"></span>
+    <button class="btn ghost sm" id="ctlBtn" title="Control from your phone">📱</button>
     <button class="btn pink sm" id="endBtn" style="display:none">End quiz</button>
     <button class="btn ghost sm" id="sndBtn" title="Sound on/off">🔊</button>
     <button class="btn ghost sm" id="fsBtn" title="Full screen (F)">⛶</button>
@@ -89,6 +91,12 @@ window.MathJax = {
 <section class="screen" id="sSetup">
   <div class="wrap">
     <div id="resumeBox"></div>
+    <div class="card" style="margin-bottom:16px;display:flex;gap:16px;align-items:center;flex-wrap:wrap">
+      <div class="qr" id="ctlQr1" style="padding:8px"></div>
+      <div style="flex:1;min-width:220px"><b>📱 Host Control on your phone</b>
+        <p class="muted" style="margin:6px 0 0">Scan this or open <b style="color:var(--ink)" class="ctlUrl"></b> on your phone (same host login).
+        From there: remove a player, close entry, hide names, and get an alert when a spammer joins. The shared screen stays clean.</p></div>
+    </div>
     <h1>Create a live quiz</h1>
     <div class="card" style="margin-bottom:16px">
       <h3>1 · Choose questions</h3>
@@ -193,6 +201,7 @@ window.MathJax = {
 const { CFG, $, esc, LS, SB, rpc, serverNow, setOffsetFrom, typeset, SFX, setSound, OPT, nf, ord, confetti } = LIVE;
 const API = (CFG.API_URL||'').trim();
 const JOIN_URL = location.origin + location.pathname.replace(/live-host\.html.*$/,'') + 'live.html';
+const CTL_URL = JOIN_URL.replace(/live\.html$/,'live-control.html');
 const JOIN_SHORT = JOIN_URL.replace(/^https?:\/\//,'').replace(/\/live\.html$/,'/live');
 let H = null;          // host state: {id, code, title, qs:[...], settings, idx}
 let PAPER = null, PICK = [];
@@ -207,8 +216,23 @@ function topbar(){
   $('tbTitle').textContent = H ? H.title : "Satyansh's Test Papers";
   $('tbCode').style.display = H ? '' : 'none'; if(H) $('tbCode').innerHTML = 'Code <b style="color:var(--yel)">'+H.code+'</b>';
   $('tbPlayers').style.display = H ? '' : 'none'; $('tbPlayers').textContent = '👥 '+STATS.players;
+  const fl = H ? (STATS.flagged||0) : 0;   // count only — names never appear on the shared screen
+  $('tbFlag').style.display = fl ? '' : 'none'; $('tbFlag').textContent = '⚠ '+fl;
 }
 $('joinUrl1').textContent = JOIN_URL;
+document.querySelectorAll('.ctlUrl').forEach(e=>e.textContent = CTL_URL.replace(/^https?:\/\//,''));
+function ctlQr(el, px){ try{ const qr = qrcode(0,'M'); qr.addData(CTL_URL); qr.make(); el.innerHTML = qr.createImgTag(px, 4); el.querySelector('img').style.width='120px'; }catch(e){} }
+ctlQr($('ctlQr1'), 4);
+$('ctlBtn').onclick = ()=>{
+  // small pop-up with the phone link (press the button again or Esc to close)
+  let o = $('ctlPop');
+  if(o){ o.remove(); return; }
+  o = document.createElement('div'); o.id='ctlPop';
+  o.style.cssText='position:fixed;right:16px;top:64px;z-index:80;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.5)';
+  o.innerHTML = '<div class="qr" style="padding:8px"></div><p class="muted" style="margin:8px 0 0;font-size:13px">Host Control on phone</p>';
+  document.body.appendChild(o); ctlQr(o.querySelector('.qr'), 4);
+  o.onclick = ()=>o.remove();
+};
 $('sndBtn').onclick = ()=>{ setSound(!LIVE.sound); $('sndBtn').textContent = LIVE.sound?'🔊':'🔇'; };
 $('sndBtn').textContent = LIVE.sound?'🔊':'🔇';
 function fullscreen(){ const d=document; if(!d.fullscreenElement) d.documentElement.requestFullscreen && d.documentElement.requestFullscreen().catch(()=>{}); else d.exitFullscreen(); }
@@ -339,10 +363,11 @@ function openLobby(){
   PRIMARY = ()=>$('startBtn').click();
 }
 function drawNames(list){
-  const box=$('names'), have=box.children.length;
-  if(list.length < have){ box.innerHTML=''; }
+  const box=$('names'); let have=box.children.length;
+  // a removed / hidden player: draw the list again (quietly)
+  if(list.length < have || [...box.children].some((c,i)=>c.textContent!==list[i])){ box.innerHTML=''; have=0; }
   for(let i=box.children.length;i<list.length;i++){ const s=document.createElement('span'); s.className='nm'; s.textContent=list[i]; box.appendChild(s); if(i>=have && have>0) SFX.join(); }
-  $('lobbyCount').textContent = list.length;
+  $('lobbyCount').textContent = STATS.players;   // hidden / flagged names still count
 }
 $('startBtn').onclick = ()=>{ if(!H) return; stopStats(); showQuestion(0); };
 $('cancelBtn').onclick = async ()=>{ if(!confirm('End this quiz?')) return; try{ await rpc('live_stage',{p_session:H.id,p_status:'ended'}); }catch(e){} stopStats(); LS.del('live_host'); H=null; topbar(); show('sSetup'); };

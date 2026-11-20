@@ -137,6 +137,7 @@ window.MathJax = {
         <div class="avatar js-avatar">?</div>
         <div><div class="nm js-uname"></div><div class="ph js-uemail"></div></div>
         <a class="btn small onbrand" href="live.html" style="text-decoration:none">🎯 Live Quiz</a>
+        <a class="btn small onbrand" href="live-control.html" id="hostCtl" style="text-decoration:none" hidden>🎛️ Host Control</a>
         <button class="btn small onbrand" id="gsOpen" type="button">👥 Group Study</button>
         <button class="btn small onbrand" id="logoutBtn" type="button">Logout</button>
       </div>
@@ -654,6 +655,9 @@ async function enter(session, log){
   const m = session.user.user_metadata || {};
   USER = { id:session.user.id, email:session.user.email, name:String(m.full_name||m.name||'').trim(), phone:normPhone(m.phone||'') };
   setUserUI();
+  // host account: show the Host Control button in the top bar
+  $('hostCtl').hidden = true;
+  SB.rpc('live_is_admin').then(({data})=>{ $('hostCtl').hidden = !data; }).catch(()=>{});
   // the teacher marked this account as spam → ask for a real account
   try{ const { data:st } = await SB.rpc('my_status'); if(st && st.blocked){
     busy(false); document.querySelectorAll('.js-uemail').forEach(e=>e.textContent=USER.email);

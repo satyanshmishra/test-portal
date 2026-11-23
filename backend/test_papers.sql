@@ -63,6 +63,15 @@ create index if not exists tp_attempts_user  on public.tp_attempts(user_id, pape
 create index if not exists tp_attempts_paper on public.tp_attempts(paper_id);
 create index if not exists tp_attempts_nouser on public.tp_attempts(phone, email) where user_id is null;
 
+-- when each student started a timed test (server clock): the time limit is checked against this
+create table if not exists public.tp_starts (
+  user_id    uuid not null,
+  paper_id   text not null,
+  started_at timestamptz not null default now(),
+  primary key (user_id, paper_id)
+);
+alter table public.tp_starts enable row level security;
+
 create table if not exists public.tp_logins (
   id      bigserial primary key,
   at      timestamptz not null default now(),
@@ -137,7 +146,7 @@ declare
   secs jsonb := '{}'::jsonb; s jsonb; q jsonb; i int; used jsonb := '{}'::jsonb; sid text;
   corr numeric; wr numeric; cap numeric; av text; bonus boolean; att boolean; ok boolean; m numeric;
   v numeric; key numeric; tol numeric;
-  score numeric := 0; c int := 0; w int := 0; u int := 0; marks jsonb := '[]'::jsonb;
+  score numeric := 0; c int := 0; w int := 0; u int := 0; marks jsonb := '[]'::jsonb; res jsonb := '[]'::jsonb; rs text;
 begin
   if jsonb_typeof(ans) is distinct from 'array' then ans := '[]'::jsonb; end if;
   for s in select value from jsonb_array_elements(coalesce(d->'sections', '[]'::jsonb)) loop
@@ -158,8 +167,8 @@ begin
       if (used->>sid)::int > cap then av := null; bonus := false; end if;   -- over the "attempt any N" limit: not counted
     end if;
     m := 0;
-    if bonus then c := c + 1; m := corr;                                    -- NTA bonus question: full marks to everyone
-    elsif av is null then u := u + 1;
+    if bonus then c := c + 1; m := corr; rs := 'c';                         -- NTA bonus question: full marks to everyone
+    elsif av is null then u := u + 1; rs := 'u';
     else
       key := tp_num(q->>'ans');
       if q->>'type' = 'mcq' then
@@ -168,11 +177,11 @@ begin
         v := tp_num(av); tol := coalesce(tp_num(q->>'tol'), 0.001);
         ok := v is not null and key is not null and abs(v - key) <= tol + 0.000000001;
       end if;
-      if ok then c := c + 1; m := corr; else w := w + 1; m := wr; end if;
+      if ok then c := c + 1; m := corr; rs := 'c'; else w := w + 1; m := wr; rs := 'w'; end if;
     end if;
-    marks := marks || to_jsonb(m); score := score + m;
+    marks := marks || to_jsonb(m); res := res || to_jsonb(rs); score := score + m;
   end loop;
-  return jsonb_build_object('score', score, 'c', c, 'w', w, 'u', u, 'marks', marks);
+  return jsonb_build_object('score', score, 'c', c, 'w', w, 'u', u, 'marks', marks, 'res', res);
 end $$;
 
 -- paper as the browser uses it: {id, settings{..., category}, sections, instructions, questions}
@@ -190,6 +199,36 @@ language sql immutable as $$
     coalesce((select jsonb_agg(q - 'ans' - 'sol' - 'tol' - 'solution' - 'explanation' order by n)
               from jsonb_array_elements(coalesce(d->'questions', '[]'::jsonb)) with ordinality t(q, n)), '[]'::jsonb))
 $$;
+
+-- before "Start": only the shape of the paper (sections, question types) for the instructions page
+create or replace function public.tp_lock(d jsonb) returns jsonb
+language sql immutable as $$
+  select d || jsonb_build_object('keyHidden', true, 'locked', true, 'questions',
+    coalesce((select jsonb_agg(jsonb_strip_nulls(jsonb_build_object('section', q->'section', 'type', q->'type', 'bonus', q->'bonus')) order by n)
+              from jsonb_array_elements(coalesce(d->'questions', '[]'::jsonb)) with ordinality t(q, n)), '[]'::jsonb))
+$$;
+
+-- Strong / Weak topics for the results list (same rule as the result page):
+-- weak = topics with a wrong answer, then skipped topics; strong = correct within 1.25 × ideal time, never wrong
+create or replace function public.tp_topics(d jsonb, res jsonb, times jsonb, dur_min numeric) returns jsonb
+language plpgsql immutable as $$
+declare q jsonb; i int; t text; wr text[] := '{}'; sk text[] := '{}'; st text[] := '{}'; ideal numeric; n int;
+begin
+  n := greatest(jsonb_array_length(coalesce(d->'questions', '[]'::jsonb)), 1);
+  ideal := coalesce(dur_min, 60) * 60000.0 / n;
+  for q, i in select value, (ordinality - 1)::int from jsonb_array_elements(coalesce(d->'questions', '[]'::jsonb)) with ordinality order by ordinality loop
+    t := nullif(trim(coalesce(q->>'topic', '')), '');
+    if t is null then continue; end if;
+    if res->>i = 'w' and not t = any(wr) then wr := wr || t; end if;
+  end loop;
+  for q, i in select value, (ordinality - 1)::int from jsonb_array_elements(coalesce(d->'questions', '[]'::jsonb)) with ordinality order by ordinality loop
+    t := nullif(trim(coalesce(q->>'topic', '')), '');
+    if t is null or t = any(wr) then continue; end if;
+    if res->>i = 'u' and not t = any(sk) then sk := sk || t; end if;
+    if res->>i = 'c' and coalesce(tp_num(times->>i), 0) <= ideal * 1.25 and not t = any(st) then st := st || t; end if;
+  end loop;
+  return jsonb_build_object('strong', array_to_string(st, ', '), 'weak', array_to_string(wr || sk, ', '));
+end $$;
 
 create or replace function public.tp_item(p public.tp_papers) returns jsonb
 language sql stable as $$
@@ -246,7 +285,27 @@ begin
   select * into p from tp_papers where id = p_id and active;
   if not found then raise exception 'Paper not found'; end if;
   if tp_is_practice(p.category, p.exam) then return tp_full(p); end if;
-  return tp_strip(tp_full(p));
+  return tp_lock(tp_full(p));            -- questions come with tp_start, when the timer starts
+end $$;
+
+-- "Start test": the server notes the start time once and sends the questions (without answers).
+-- Opening the test again (refresh, another device) keeps the first start time.
+create or replace function public.tp_start(p_paper text) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare me jsonb := tp_auth(); p tp_papers; st timestamptz;
+begin
+  select * into p from tp_papers where id = p_paper and active;
+  if not found then raise exception 'Paper not found'; end if;
+  if tp_is_practice(p.category, p.exam) then
+    return jsonb_build_object('paper', tp_full(p), 'startedAt', 0, 'now', 0);
+  end if;
+  if exists (select 1 from tp_attempts a where tp_mine(a, me) and a.paper_id = p.id and a.status !~* 'reopen') then
+    raise exception 'You have already attempted this paper.';
+  end if;
+  insert into tp_starts(user_id, paper_id) values ((me->>'id')::uuid, p.id) on conflict do nothing;
+  select started_at into st from tp_starts where user_id = (me->>'id')::uuid and paper_id = p.id;
+  return jsonb_build_object('paper', tp_strip(tp_full(p)),
+    'startedAt', (extract(epoch from st) * 1000)::bigint, 'now', (extract(epoch from now()) * 1000)::bigint);
 end $$;
 
 create or replace function public.tp_my_attempts() returns jsonb
@@ -286,7 +345,7 @@ create or replace function public.tp_submit(p jsonb) returns jsonb
 language plpgsql security definer set search_path = public as $$
 declare
   me jsonb := tp_auth(); pr tp_papers; g jsonb; ans jsonb; sub bigint; fp jsonb;
-  qw text; nm text; taken numeric; att int; already boolean; mx numeric;
+  qw text; nm text; taken numeric; att int; already boolean; mx numeric; tl jsonb; st timestamptz; late numeric; note text := '';
 begin
   select * into pr from tp_papers where id = p->>'paperId';
   if not found then raise exception 'Paper not found'; end if;
@@ -306,6 +365,17 @@ begin
         when ans->(t.n::int - 1) is null or jsonb_typeof(ans->(t.n::int - 1)) = 'null' or ans->>(t.n::int - 1) = '' then '-'
         when t.q->>'type' = 'mcq' then coalesce(nullif(substr('ABCDEFGH', tp_num(ans->>(t.n::int - 1))::int + 1, 1), ''), '?')
         else left(ans->>(t.n::int - 1), 20) end as s) sh;
+  tl := tp_topics(pr.data, g->'res', coalesce(p->'time', '[]'::jsonb), pr.duration_min);
+  -- time limit, on the server clock (2 min allowed for a slow network). A late test is still saved and
+  -- marked, so a student who was offline is not lost; the teacher sees it in Results.
+  select started_at into st from tp_starts where user_id = (me->>'id')::uuid and paper_id = pr.id;
+  if st is not null and not tp_is_practice(pr.category, pr.exam) then
+    late := extract(epoch from (now() - st)) / 60 - pr.duration_min;
+    if late > 2 then note := 'Late: reached ' || round(late) || ' min after the time limit'; end if;
+    delete from tp_starts where user_id = (me->>'id')::uuid and paper_id = pr.id;
+  elsif not tp_is_practice(pr.category, pr.exam) then
+    note := 'No server start time';
+  end if;
   nm := coalesce(nullif(me->>'name', ''), left(trim(coalesce(p->>'name', '')), 80));
   taken := greatest(coalesce(tp_num(p->>'taken'), 0), 0);
   att := (g->>'c')::int + (g->>'w')::int;
@@ -316,8 +386,8 @@ begin
           (g->>'c')::int, (g->>'w')::int, (g->>'u')::int,
           case when att > 0 then round((g->>'c')::numeric / att * 100) else 0 end,
           round(taken / 60000, 2), coalesce(p->>'auto', '') = 'true',
-          left(coalesce(p->>'strong', ''), 2000), left(coalesce(p->>'weak', ''), 2000), coalesce(qw, ''),
-          case when already then 'Extra attempt' else '' end,
+          left(coalesce(nullif(p->>'strong', ''), tl->>'strong'), 2000), left(coalesce(nullif(p->>'weak', ''), tl->>'weak'), 2000), coalesce(qw, ''),
+          concat_ws(' · ', nullif(case when already then 'Extra attempt' else '' end, ''), nullif(note, '')),
           jsonb_build_object('ans', ans, 'mark', coalesce(p->'mark', '[]'::jsonb), 'time', coalesce(p->'time', '[]'::jsonb),
                              'auto', coalesce(p->>'auto', '') = 'true', 'taken', taken, 'submitAt', coalesce(sub, 0),
                              'start', coalesce(tp_num(p->>'start'), 0)),
@@ -437,6 +507,9 @@ begin
         or (a.user_id is null and tp_phone(p_phone) <> '' and a.phone = tp_phone(p_phone))
         or (coalesce(p_user, '') = '' and coalesce(p_email, '') = '' and tp_phone(p_phone) <> '' and a.phone = tp_phone(p_phone)) );
   get diagnostics n = row_count;
+  if coalesce(p_user, '') ~ '^[0-9a-fA-F-]{36}$' then
+    delete from tp_starts where user_id = p_user::uuid and paper_id = p_paper;
+  end if;
   return jsonb_build_object('ok', true, 'reopened', n);
 end $$;
 
@@ -522,7 +595,7 @@ declare f text;
 begin
   foreach f in array array[
     'tp_auth()', 'tp_admin_check()', 'tp_papers_list()', 'tp_paper(text)', 'tp_my_attempts()', 'tp_me(boolean)',
-    'tp_my_attempt(text)', 'tp_submit(jsonb)', 'tp_admin_papers()', 'tp_admin_get(text)', 'tp_admin_save(jsonb,text)',
+    'tp_my_attempt(text)', 'tp_submit(jsonb)', 'tp_start(text)', 'tp_admin_papers()', 'tp_admin_get(text)', 'tp_admin_save(jsonb,text)',
     'tp_admin_set(text,jsonb)', 'tp_admin_delete(text)', 'tp_admin_results(int)', 'tp_admin_reopen(text,text,text,text)',
     'tp_admin_counts()', 'tp_admin_import_paper(text,jsonb,boolean,int,text,text,text)', 'tp_admin_import_attempts(jsonb)'] loop
     execute format('revoke execute on function public.%s from public, anon', f);

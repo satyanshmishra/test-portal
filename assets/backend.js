@@ -32,6 +32,7 @@
       case 'me':       return await call(SB, 'tp_me', { p_log: !!extra.log });
       case 'papers':   return { ok: true, papers: await call(SB, 'tp_papers_list') };
       case 'paper':    return { ok: true, paper: await call(SB, 'tp_paper', { p_id: String(extra.id) }) };
+      case 'start':    return Object.assign({ ok: true }, await call(SB, 'tp_start', { p_paper: String(extra.id) }));
       case 'attempts': return { ok: true, attempts: await call(SB, 'tp_my_attempts') };
       case 'attempt':  return { ok: true, attempt: await call(SB, 'tp_my_attempt', { p_paper: String(extra.paperId) }) };
       case 'submit': {

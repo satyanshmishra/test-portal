@@ -11,7 +11,7 @@
 <script src="assets/cloud.js?v=26111904"></script>
 <script src="config.js"></script>
 <script src="assets/supabase.js"></script>
-<script src="assets/backend.js?v=26112301"></script>
+<script src="assets/backend.js?v=26112302"></script>
 <script>
 window.MathJax = {
   tex: { inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']], packages: {'[+]': ['mhchem']} },
@@ -1040,9 +1040,20 @@ function saveActive(){
   LS.set('stp_active',{uid:USER.id, name:USER.name, paperId:P.id, ans:S.ans, mark:S.mark, visited:S.visited,
     time:S.time.map((t,i)=>i===S.cur?t+(Date.now()-S.last):t), cur:S.cur, start:S.start, end:S.end, warned10:S.warned10, warned5:S.warned5});
 }
-function startExam(){
+async function startExam(){
   if(!$('agree').checked) return;
-  S.start=Date.now(); S.end=S.start+DURATION; S.last=S.start; S.cur=0; S.visited[0]=true;
+  let shift=0;
+  if(P.locked){   // Supabase timed test: the server notes the start time and sends the questions now
+    busy(true,'Starting your test…');
+    try{
+      const r=await api('start',{id:P.id});
+      usePaper(r.paper); PAPER_CACHE[P.id]=r.paper;
+      if(r.startedAt && r.now) shift=Math.max(0, r.now-r.startedAt);   // already started earlier (another device): the timer continues
+    }catch(e){ busy(false); if(e.auth) return authFail(e); toast(e.message && /already attempted/i.test(e.message) ? e.message : 'Internet is needed to start the test. Please check it and try again.',6000); return; }
+    busy(false);
+  }
+  S.start=Date.now()-shift; S.end=S.start+DURATION; S.last=Date.now(); S.cur=0; S.visited[0]=true;
+  if(S.end<=Date.now()){ beginExamUI(); submitTest(true); return; }
   beginExamUI();
 }
 function beginExamUI(){
@@ -1052,7 +1063,8 @@ function beginExamUI(){
 }
 async function resumeActive(act){
   busy(true,'Resuming your test…');
-  const paper = await fetchPaper(act.paperId);
+  let paper = await fetchPaper(act.paperId);
+  if(paper.locked){ const r=await api('start',{id:act.paperId}); paper=r.paper; PAPER_CACHE[act.paperId]=paper; }
   usePaper(paper); VIEW_ONLY=false; S=freshState();
   Object.assign(S,{ans:act.ans,mark:act.mark,visited:act.visited,time:act.time,cur:act.cur||0,start:act.start,end:act.end,warned10:act.warned10,warned5:act.warned5});
   S.last=Date.now();

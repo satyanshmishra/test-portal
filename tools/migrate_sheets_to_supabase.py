@@ -86,12 +86,40 @@ class Supa:
 def main():
     go = "--go" in sys.argv
     pw = getpass.getpass("Apps Script admin password (typing will not show): ")
-    apps("login", pw)
+    try:
+        apps("login", pw)
+    except Exception as e:
+        print("  Apps Script:", e); return
     print("Apps Script: OK")
-    email = input("Teacher login email (Supabase): ").strip()
-    spw = getpass.getpass("Teacher login password (typing will not show): ")
-    sb = Supa(email, spw)
-    before = sb.rpc("tp_admin_counts")
+    print("\nNow your test.satyansh.blog login: the SAME email + password you use to log in on the site")
+    print("(the account that shows the Host Control button).")
+    sb = None
+    for tries in range(3):
+        email = input("Email: ").strip()
+        spw = getpass.getpass("Password (typing will not show): ")
+        try:
+            sb = Supa(email, spw)
+            break
+        except Exception as e:
+            if "invalid login" in str(e).lower():
+                print("  Wrong email or password. Try again (forgot it? use 'Forgot password' on test.satyansh.blog).")
+            elif "not confirmed" in str(e).lower():
+                print("  This email is not confirmed yet. Open the confirmation mail first.")
+            else:
+                print("  Could not log in:", e)
+    if sb is None:
+        return
+    try:
+        before = sb.rpc("tp_admin_counts")
+    except Exception as e:
+        msg = str(e)
+        if "teacher account" in msg:
+            print("  Logged in, but this account is not the teacher (Live Quiz host) account. Use that account's email.")
+        elif "Could not find the function" in msg or "does not exist" in msg:
+            print("  Supabase is not set up yet: run backend/test_papers.sql in Supabase -> SQL Editor first.")
+        else:
+            print("  Supabase error:", msg)
+        return
     print("Supabase: OK  (now has", before, ")")
 
     plist = apps("exportPapers", pw)["papers"]

@@ -11,6 +11,7 @@
 <script src="assets/cloud.js?v=26111904"></script>
 <script src="config.js"></script>
 <script src="assets/supabase.js"></script>
+<script src="assets/backend.js?v=26112301"></script>
 <script>
 window.MathJax = {
   tex: { inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']], packages: {'[+]': ['mhchem']} },
@@ -431,6 +432,7 @@ async function token(){
 }
 /* Every student request is a POST carrying the login token; the server checks it with Supabase. */
 async function api(action, extra){
+  if(window.TP && TP.on) return TP.student(action, extra, SB);   // papers + results in Supabase (assets/backend.js)
   const body = Object.assign({}, extra||{}, {action, token: await token()});
   const r = await fetch(API, {method:'POST', redirect:'follow', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(body)});
   const raw = await r.text(); let j;
@@ -462,7 +464,7 @@ let VIEW = {level:'home'};  // where the student is in the folder list
 
 document.querySelectorAll('.js-brand').forEach(e=>e.textContent=BRAND.toUpperCase()+' · MOCK TESTS');
 document.querySelectorAll('.js-brand-plain').forEach(e=>e.textContent=BRAND);
-if(!API || !SB) $('cfgErr').style.display='block';
+if((!API && !(window.TP && TP.on)) || !SB) $('cfgErr').style.display='block';
 
 function setUserUI(){
   const nm = USER.name || USER.email;
@@ -474,15 +476,23 @@ function setUserUI(){
 /* ---------- pending submissions (offline safety) ---------- */
 function pendingList(){ return LS.get('stp_pending', []); }
 function mergePendingAttempts(){
-  pendingList().filter(p=>p.uid===USER.id).forEach(p=>{ if(!ATTEMPTS[p.paperId]) ATTEMPTS[p.paperId]={score:p.localScore,maxMarks:p.localMax,pending:true,time:new Date(p.submitAt).toISOString()}; });
+  pendingList().filter(p=>p.uid===USER.id).forEach(p=>{ if(!ATTEMPTS[p.paperId]) ATTEMPTS[p.paperId]={score:p.localScore==null?'…':p.localScore,maxMarks:p.localMax,pending:true,time:new Date(p.submitAt).toISOString()}; });
 }
 async function flushPending(){
-  if(!API || !USER) return;
+  if((!API && !(window.TP && TP.on)) || !USER) return;
+  if(FLUSHING) return FLUSHING;
+  FLUSHING = flushPendingNow().finally(()=>{ FLUSHING=null; });
+  return FLUSHING;
+}
+let FLUSHING=null;
+async function flushPendingNow(){
   let list = pendingList(); if(!list.length) return;
   const keep=[];
   for(const item of list){
     if(item.uid!==USER.id){ keep.push(item); continue; }   // another student's result on this device: send when they log in
-    try{ const r = await api('submit', item); ATTEMPTS[item.paperId]={score:r.score,maxMarks:r.maxMarks,time:new Date(item.submitAt).toISOString()}; }
+    try{ const r = await api('submit', item); ATTEMPTS[item.paperId]={score:r.score,maxMarks:r.maxMarks,time:new Date(item.submitAt).toISOString()};
+         if(r.paper) PAPER_CACHE[item.paperId]=r.paper;   // the answer key comes back after submitting
+         if($('papers').classList.contains('active')) renderPapers(); }
     catch(e){ keep.push(item); }
   }
   LS.set('stp_pending', keep);
@@ -982,6 +992,7 @@ function freshState(){
 
 async function openPaper(id){
   if(ATTEMPTS[id]){ toast('You have already attempted this paper.'); return; }
+  if(window.TP && TP.on && PAPER_CACHE[id] && !PAPER_CACHE[id].keyHidden) delete PAPER_CACHE[id];   // reopened paper: take the copy without answers
   busy(true,'Opening paper…');
   try{
     const [paper, at] = await Promise.all([fetchPaper(id), api('attempts').catch(()=>null)]);
@@ -1200,6 +1211,7 @@ function submitTest(auto){
   clearInterval(S.timer);
   window.removeEventListener('beforeunload',beforeUnload);
   closeModal();
+  if(P.keyHidden) return submitHidden(auto);
   evaluate();
   const score=S.R.reduce((s,r)=>s+r.marks,0);
   const tl=topicLists();
@@ -1215,6 +1227,33 @@ function submitTest(auto){
   if(auto) toast('⏰ Time is up! Your test was submitted automatically.',5000);
   flushPending();
 }
+/* timed tests from Supabase come without the answer key: the server grades the test and sends the key back */
+async function submitHidden(auto){
+  const id=P.id;
+  const item={action:'submit', uid:USER.id, name:USER.name, paperId:id, paperName:ST.paperName||'',
+    ans:S.ans, mark:S.mark, time:S.time.map(t=>Math.round(t)), auto, start:S.start, submitAt:S.submitAt,
+    taken:Math.min(S.submitAt-S.start,DURATION), strong:'', weak:'', localScore:null, localMax:MAXM};
+  const list=pendingList(); list.push(item); LS.set('stp_pending',list);
+  LS.del('stp_active');
+  ATTEMPTS[id]={score:'…',maxMarks:MAXM,pending:true,time:new Date(S.submitAt).toISOString()};
+  busy(true, auto ? 'Time is up — submitting your test…' : 'Submitting your test…');
+  for(let k=0;k<3;k++){
+    await flushPending();
+    if(!pendingList().some(p=>p.uid===USER.id && p.paperId===id)) break;
+    await new Promise(r=>setTimeout(r,2500));
+  }
+  busy(false);
+  const full=PAPER_CACHE[id];
+  if(full && !full.keyHidden && !pendingList().some(p=>p.uid===USER.id && p.paperId===id)){
+    usePaper(full); evaluate();
+    VIEW_ONLY=false; SAVE_STATE='ok';
+    renderReport(); show('result');
+    if(auto) toast('⏰ Time is up! Your test was submitted automatically.',5000);
+  } else {
+    renderPapers(); show('papers');
+    toast('✓ Your test is submitted and kept safe on this device. The result opens as soon as the internet is back (keep this page open).',9000);
+  }
+}
 function updateSaveStatus(){
   const el=document.getElementById('saveStatus'); if(!el || VIEW_ONLY) return;
   const pend = P && pendingList().some(p=>p.uid===USER.id && p.paperId===P.id);
@@ -1226,11 +1265,16 @@ function updateSaveStatus(){
 async function viewResult(id, solutions){
   busy(true,'Loading your result…');
   try{
-    const paper = await fetchPaper(id);
-    let d=null;
+    let d=null, paper=null;
     const pend = pendingList().find(p=>p.uid===USER.id && p.paperId===id);
-    if(pend) d={ans:pend.ans,mark:pend.mark,time:pend.time,auto:pend.auto,start:pend.start,submitAt:pend.submitAt,taken:pend.taken};
-    else d=(await api('attempt',{paperId:id})).attempt;
+    if(pend){
+      paper = await fetchPaper(id);
+      if(paper.keyHidden){ busy(false); toast('Your result is still being saved. Please keep the internet on — it will open in a moment.',6000); flushPending(); return; }
+      d={ans:pend.ans,mark:pend.mark,time:pend.time,auto:pend.auto,start:pend.start,submitAt:pend.submitAt,taken:pend.taken};
+    } else {
+      d=(await api('attempt',{paperId:id})).attempt;
+      if(d.paper){ PAPER_CACHE[id]=d.paper; paper=d.paper; } else paper = await fetchPaper(id);
+    }
     usePaper(paper); S=freshState();
     S.ans=(d.ans||[]).slice(0,N); while(S.ans.length<N) S.ans.push(null);
     S.mark=(d.mark||[]).slice(0,N); S.time=(d.time||[]).map(Number); while(S.time.length<N) S.time.push(0);

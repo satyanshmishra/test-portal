@@ -1,5 +1,5 @@
 /**
- * Satyansh's Test Papers — backend (Google Apps Script)   v2.1 (accounts + folders + practice sheets)
+ * Satyansh's Test Papers — backend (Google Apps Script)   v2.2 (accounts + folders + practice sheets + export to Supabase)
  * ==============================================================================
  * Paste this whole file into: Google Sheet → Extensions → Apps Script → Code.gs
  * (replace everything that is there now).
@@ -368,9 +368,35 @@ function admin_(b) {
       });
       return { ok: true, reopened: n };
     }
+    /* one-time move to Supabase (tools/migrate_sheets_to_supabase.py): everything, with exact dates */
+    case 'exportPapers':
+      return { ok: true, papers: rows_(sheet_('Papers', PAPER_COLS)).filter(function (r) { return r[0] !== ''; }).map(function (r) {
+        var p = paperRowObj_(r);
+        return { id: p.id, name: p.name, active: p.active, order: p.order, category: p.category,
+                 created: iso_(r[9]), updated: iso_(r[10]) };
+      }) };
+    case 'exportResults': {
+      var all = rows_(sheet_('Results', RESULT_COLS)), off = Math.max(0, Number(b.offset) || 0),
+          lim = Math.min(1000, Math.max(1, Number(b.limit) || 300));
+      return { ok: true, total: all.length, rows: all.slice(off, off + lim).map(function (r, i) {
+        return { row: off + i + 2, time: iso_(r[0]), name: String(r[1]), phone: cleanPhone_(r[R_PHONE]),
+                 paperId: String(r[R_PAPER]), paperName: String(r[4]), score: r[5], maxMarks: r[6], pct: r[7],
+                 correct: r[8], wrong: r[9], skipped: r[10], accuracy: r[11], minutes: r[12], auto: String(r[13]),
+                 strong: String(r[14]), weak: String(r[15]), qwise: String(r[16]), status: String(r[R_STATUS]),
+                 data: String(r[R_DATA] || ''), email: String(r[R_EMAIL] || ''), userId: String(r[R_UID] || '') };
+      }) };
+    }
     default:
       return { ok: false, error: 'Unknown admin operation' };
   }
+}
+
+/* a sheet date (Date object or "yyyy-MM-dd HH:mm:ss" text, India time) as ISO text */
+function iso_(v) {
+  if (v instanceof Date) return Utilities.formatDate(v, TZ, "yyyy-MM-dd'T'HH:mm:ssXXX");
+  var s = String(v || '');
+  if (/^\d{4}-\d\d-\d\d \d\d:\d\d(:\d\d)?$/.test(s)) return s.replace(' ', 'T') + '+05:30';
+  return s;
 }
 
 function savePaper_(paper, id) {

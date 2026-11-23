@@ -1,6 +1,11 @@
 /* ===== Site settings ===== */
 window.APP_CONFIG = {
-  /* Google Apps Script Web App URL (ends with /exec) */
+  /* Where papers and results live:
+     "supabase" = Supabase database (run backend/test_papers.sql, then tools/migrate_sheets_to_supabase.py --go)
+     "sheets"   = the old Google Sheet through Apps Script (API_URL below). Switch back here if ever needed. */
+  BACKEND: "sheets",
+
+  /* Google Apps Script Web App URL (ends with /exec) — used only while BACKEND is "sheets" */
   API_URL: "https://script.google.com/macros/s/AKfycby0H8pi7yDw8Fh3oYvcVPMYsBB1jXDnybLQ2653OH8BwGw-GXE7IQ6X63uyn5edTZI/exec",
 
   /* Heading shown across the site */

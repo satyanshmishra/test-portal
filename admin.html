@@ -10,6 +10,8 @@
 <meta name="theme-color" content="#1f4e8c">
 <script src="assets/theme.js?v=26111804"></script>
 <script src="config.js"></script>
+<script src="assets/supabase.js"></script>
+<script src="assets/backend.js?v=26112301"></script>
 <script>
 window.MathJax = {
   tex: { inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']], packages: {'[+]': ['mhchem']} },
@@ -53,8 +55,12 @@ window.MathJax = {
       <h1>Teacher Login</h1>
       <p class="sub">Manage test papers and see student results.</p>
       <div class="msg-box err" id="aCfg" style="display:none">API_URL is empty in <b>config.js</b>. Paste your Apps Script Web App URL there first.</div>
+      <div class="field" id="aEmailWrap" style="display:none">
+        <label for="aEmail">Teacher Email</label>
+        <input id="aEmail" type="email" autocomplete="username" placeholder="Your teacher (Live Quiz host) account email">
+      </div>
       <div class="field">
-        <label for="aPass">Admin Password</label>
+        <label for="aPass" id="aPassLbl">Admin Password</label>
         <input id="aPass" type="password" autocomplete="current-password" placeholder="Enter admin password">
         <div class="err" id="aErr"></div>
       </div>
@@ -132,11 +138,12 @@ window.MathJax = {
     <div class="pane" id="pResults">
       <div class="card sec">
         <h2>Student Results</h2>
-        <p class="hint">Every submitted test. The full data (with question-wise responses) is in the Google Sheet. <b>Reopen</b> lets a student attempt that paper again.</p>
+        <p class="hint">Every submitted test. <b>⬇ CSV</b> downloads the list shown (with question-wise responses) for Excel / Google Sheets. <b>Reopen</b> lets a student attempt that paper again.</p>
         <div class="filters">
           <select id="rPaper"><option value="">All papers</option></select>
           <input id="rSearch" placeholder="Search name, email or phone">
           <button class="btn small light" type="button" id="rRefresh">↻ Refresh</button>
+          <button class="btn small light" type="button" id="rCsv">⬇ CSV</button>
         </div>
         <div class="tbl-wrap" id="resTable"><p class="hint">Loading…</p></div>
       </div>
@@ -157,7 +164,10 @@ function busy(on,msg){$('overlayMsg').textContent=msg||'Working…';$('overlay')
 function typeset(el,t=0){ if(window.MathJax&&MathJax.typesetPromise&&MathJax.startup&&MathJax.startup.promise){MathJax.startup.promise=MathJax.startup.promise.then(()=>{if(MathJax.typesetClear)MathJax.typesetClear([el]);return MathJax.typesetPromise([el]);}).catch(()=>{});} else if(t<80) setTimeout(()=>typeset(el,t+1),250); }
 const SS={get(k){try{return sessionStorage.getItem(k)}catch(e){return null}},set(k,v){try{sessionStorage.setItem(k,v)}catch(e){}},del(k){try{sessionStorage.removeItem(k)}catch(e){}}};
 document.querySelectorAll('.js-brand').forEach(e=>e.textContent=BRAND);
-if(!API) $('aCfg').style.display='block';
+const SBON = !!(window.TP && TP.on);
+let SB=null; try{ if(SBON && window.supabase) SB=window.supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_KEY); }catch(e){}
+if(SBON){ $('aEmailWrap').style.display=''; $('aPassLbl').textContent='Password'; $('aPass').placeholder='Your account password'; $('sheetLink').style.display='none'; }
+else if(!API) $('aCfg').style.display='block';
 
 let PASS='', PAPERS=[], RESULTS=[], RLIST=[], DRAFT=null, EDIT_ID=null;
 const FOLDERS=(CFG.FOLDERS&&CFG.FOLDERS.length)?CFG.FOLDERS:[{id:'topic',title:'Topic-wise Papers'},{id:'full',title:'Full Syllabus Papers'},{id:'main3h',title:'JEE Main 3-Hour Papers',allSubjects:true},{id:'sheet',title:'Practice Sheets',practice:true}];
@@ -167,21 +177,34 @@ const subjOff=p=>((FOLDERS.find(f=>f.id===(p.category||'topic'))||{}).allSubject
 const guessCat=(st)=>FOLDERS.some(f=>f.id===st.category)?st.category:(Number(st.durationMin)>=180?'main3h':'topic');
 $('fCat').innerHTML=catOpts('topic');
 async function admin(op, extra={}){
+  if(SBON) return TP.admin(op, extra, SB);   // papers + results in Supabase
   const r=await fetch(API,{method:'POST',redirect:'follow',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(Object.assign({action:'admin',op,password:PASS},extra))});
   const j=await r.json(); if(!j.ok) throw new Error(j.error||'Request failed'); return j;
 }
 
 /* ---------- login ---------- */
-$('aForm').addEventListener('submit',async e=>{e.preventDefault(); if(!API) return; PASS=$('aPass').value; await doLogin();});
+$('aForm').addEventListener('submit',async e=>{e.preventDefault();
+  if(SBON){
+    if(!SB){ $('aErr').textContent='Login service did not load. Refresh the page.'; return; }
+    busy(true,'Signing in…');
+    const { error } = await SB.auth.signInWithPassword({ email:$('aEmail').value.trim(), password:$('aPass').value });
+    busy(false);
+    if(error){ $('aErr').textContent=/invalid/i.test(error.message)?'Wrong email or password.':error.message; return; }
+    $('aPass').value=''; await doLogin(); return;
+  }
+  if(!API) return; PASS=$('aPass').value; await doLogin();});
 async function doLogin(){
   busy(true,'Signing in…');
-  try{ const r=await admin('login'); SS.set('stp_admin',PASS); $('sheetLink').href=r.sheetUrl||'#'; $('aErr').textContent='';
+  try{ const r=await admin('login'); if(!SBON){ SS.set('stp_admin',PASS); $('sheetLink').href=r.sheetUrl||'#'; } $('aErr').textContent='';
        show('aDash'); await loadPapers(); }
-  catch(err){ $('aErr').textContent=err.message==='Wrong password'?'Wrong password.':('Could not connect: '+err.message); SS.del('stp_admin'); }
+  catch(err){ $('aErr').textContent=err.message==='Wrong password'?'Wrong password.':('Could not sign in: '+err.message); SS.del('stp_admin');
+       if(SBON && SB) SB.auth.signOut().catch(()=>{}); show('aLogin'); }
   busy(false);
 }
-$('aLogout').addEventListener('click',()=>{SS.del('stp_admin');PASS='';$('aPass').value='';show('aLogin');});
-(function(){const p=SS.get('stp_admin'); if(API&&p){PASS=p;doLogin();}})();
+$('aLogout').addEventListener('click',async()=>{SS.del('stp_admin');PASS='';$('aPass').value=''; if(SBON&&SB) await SB.auth.signOut().catch(()=>{}); show('aLogin');});
+(async function(){
+  if(SBON){ if(SB){ const s=(await SB.auth.getSession()).data.session; if(s) doLogin(); } return; }
+  const p=SS.get('stp_admin'); if(API&&p){PASS=p;doLogin();}})();
 
 /* ---------- tabs ---------- */
 function tab(id){document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.dataset.tab===id));document.querySelectorAll('.pane').forEach(p=>p.classList.toggle('on',p.id===id));
@@ -218,7 +241,7 @@ $('paperTable').addEventListener('click',async e=>{
       for(let i=0;i<arr.length;i++) if(arr[i].order!==i+1) await admin('setOrder',{id:arr[i].id,order:i+1}); }
     else if(b.dataset.edit){ busy(true,'Loading paper…'); const r=await admin('getPaper',{id:b.dataset.edit}); EDIT_ID=b.dataset.edit; loadDraft(r.paper,true); tab('pAdd'); busy(false); return; }
     else if(b.dataset.del){ const p=PAPERS.find(x=>x.id===b.dataset.del);
-      if(!confirm(`Delete "${p.name}"?\n\nStudents will no longer see it. Results already in the Google Sheet are kept.`)) return;
+      if(!confirm(`Delete "${p.name}"?\n\nStudents will no longer see it. Results already submitted for it are kept.`)) return;
       busy(true,'Deleting…'); await admin('deletePaper',{id:p.id}); toast('Paper deleted'); }
     await loadPapers();
   }catch(err){ toast('Error: '+err.message,5000); }
@@ -332,12 +355,22 @@ function renderResults(){
 $('rPaper').addEventListener('change',renderResults);
 $('rSearch').addEventListener('input',renderResults);
 $('rRefresh').addEventListener('click',loadResults);
+$('rCsv').addEventListener('click',()=>{
+  const list=RLIST.length?RLIST:RESULTS; if(!list.length){ toast('No results to download.'); return; }
+  const cols=[['time','Submitted'],['name','Name'],['email','Email'],['phone','Phone'],['paperName','Paper'],['paperId','Paper ID'],['score','Score'],['maxMarks','Max Marks'],
+    ['pct','Percentage'],['correct','Correct'],['wrong','Incorrect'],['skipped','Unattempted'],['minutes','Time (min)'],['auto','Auto Submitted'],['status','Status'],
+    ['strong','Strong Topics'],['weak','Weak Topics'],['qwise','Question-wise Responses']];
+  const cell=v=>{ v=String(v==null?'':v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; };
+  const csv='\ufeff'+[cols.map(c=>c[1]).join(',')].concat(list.map(r=>cols.map(c=>cell(r[c[0]])).join(','))).join('\r\n');
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+  a.download='results-'+new Date().toISOString().slice(0,10)+'.csv'; document.body.appendChild(a); a.click(); a.remove();
+});
 $('resTable').addEventListener('click',async e=>{
   const b=e.target.closest('[data-reopen]'); if(!b) return;
   const r=RLIST[+b.dataset.reopen]; if(!r) return;
-  if(!confirm(`Allow ${r.name} (${r.email||r.phone}) to attempt "${r.paperName}" again?\n\nThe old result stays in the sheet, marked "Reopened".`)) return;
+  if(!confirm(`Allow ${r.name} (${r.email||r.phone}) to attempt "${r.paperName}" again?\n\nThe old result is kept, marked "Reopened".`)) return;
   busy(true,'Reopening…');
-  try{ await admin('reopen',{phone:r.phone,userId:r.userId,paperId:r.paperId}); toast('Done — the student can attempt this paper again.'); await loadResults(); }
+  try{ await admin('reopen',{phone:r.phone,userId:r.userId,email:r.email,paperId:r.paperId}); toast('Done — the student can attempt this paper again.'); await loadResults(); }
   catch(err){ toast('Error: '+err.message,5000); }
   busy(false);
 });

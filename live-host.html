@@ -8,6 +8,7 @@
 <link rel="stylesheet" href="assets/live.css">
 <script src="config.js"></script>
 <script src="assets/supabase.js"></script>
+<script src="assets/backend.js?v=26112301"></script>
 <script src="assets/qrcode.js"></script>
 <script>
 window.MathJax = {
@@ -104,7 +105,7 @@ window.MathJax = {
       <div class="tabs"><button class="tab on" data-src="portal">From the Test Portal</button><button class="tab" data-src="file">Upload JSON</button><button class="tab" data-src="paste">Paste JSON</button></div>
       <div id="srcPortal">
         <div class="grid2">
-          <div class="field"><label>Admin password (Test Portal admin)</label><input id="admPass" type="password" autocomplete="off"></div>
+          <div class="field" id="admPassWrap"><label>Admin password (Test Portal admin)</label><input id="admPass" type="password" autocomplete="off"></div>
           <div class="field" style="display:flex;align-items:flex-end"><button class="btn" id="loadPapersBtn">Load my papers</button></div>
         </div>
         <div class="field" id="paperPick" style="display:none"><label>Paper</label><select id="paperSel"></select></div>
@@ -277,7 +278,9 @@ document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
   $('srcFile').style.display = t.dataset.src==='file'?'':'none';
   $('srcPaste').style.display = t.dataset.src==='paste'?'':'none';
 });
+if(window.TP && TP.on) $('admPassWrap').style.display='none';   // papers in Supabase: your host login is enough
 async function admin(op, extra){
+  if(window.TP && TP.on) return TP.admin(op, extra, SB);
   const r = await fetch(API,{method:'POST',redirect:'follow',headers:{'Content-Type':'text/plain;charset=utf-8'},
     body:JSON.stringify(Object.assign({action:'admin',op,password:$('admPass').value},extra||{}))});
   const j = await r.json(); if(!j.ok) throw new Error(j.error||'Request failed'); return j;

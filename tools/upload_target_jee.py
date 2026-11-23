@@ -19,16 +19,21 @@ What it does
                                                 name "<Topic> | Sheet 1" (number from the file name)
 No level is ever written in a name, so students do not see Level 1/2/3/4.
 
-The Web App URL is built in (same as the portal's config.js). The admin password is asked
-every time and never saved.
-uploaded_log.json remembers what went up, so a re-run skips those papers.
+Uploads go to Supabase (the portal's database since Nov 2026). You log in with your teacher
+account (the email + password of the Live Quiz host account); the password is asked every time
+and never saved (the email is remembered in upload_config.json).
+    python upload_target_jee.py --upload --sheets   (old way: Google Sheet / Apps Script admin password)
+uploaded_log.json remembers what went up, so a re-run skips those papers (paper IDs stayed the same
+when the papers moved to Supabase, so the old log is still right).
 Needs only Python 3 (no pip installs).
 """
-import getpass, glob, json, os, re, sys, time, urllib.request
+import getpass, glob, json, os, re, sys, time, urllib.error, urllib.request
 
 HERE = os.getcwd()
 CFG = os.path.join(HERE, "upload_config.json")
 LOG = os.path.join(HERE, "uploaded_log.json")
+SB_URL = "https://axznixboebvixkigojvj.supabase.co"
+SB_KEY = "sb_publishable_g3vreHGOHm7lu4b91Qtahw_4uH-loXh"
 DEFAULT_URL = "https://script.google.com/macros/s/AKfycby0H8pi7yDw8Fh3oYvcVPMYsBB1jXDnybLQ2653OH8BwGw-GXE7IQ6X63uyn5edTZI/exec"
 
 def nice_chapter(stem):
@@ -82,6 +87,57 @@ def post(url, body):
     with urllib.request.urlopen(req, timeout=120) as r:
         return json.loads(r.read().decode("utf-8"))
 
+def sb_http(url, body, token=None):
+    h = {"Content-Type": "application/json", "apikey": SB_KEY}
+    if token: h["Authorization"] = "Bearer " + token
+    req = urllib.request.Request(url, data=json.dumps(body).encode("utf-8"), headers=h)
+    try:
+        with urllib.request.urlopen(req, timeout=120) as r:
+            t = r.read().decode("utf-8")
+            return json.loads(t) if t else None
+    except urllib.error.HTTPError as e:
+        t = e.read().decode("utf-8", "replace")
+        try: j = json.loads(t); msg = j.get("message") or j.get("msg") or j.get("error_description") or t
+        except ValueError: msg = t
+        raise RuntimeError(str(msg)[:300])
+
+class Backend:
+    """the same four operations on Supabase (default) or the old Apps Script (--sheets)"""
+    def __init__(self):
+        self.sheets = "--sheets" in sys.argv
+        cfg = {}
+        if os.path.exists(CFG):
+            try: cfg = json.load(open(CFG))
+            except Exception: cfg = {}
+        if self.sheets:
+            u = cfg.get("url", "")
+            self.url = u if u.startswith("https://script.google.com/") else DEFAULT_URL
+            print("Web App:", self.url[:60] + "...")
+            self.pw = getpass.getpass("Admin password (typing will not show): ")
+            if not post(self.url, {"action": "admin", "op": "login", "password": self.pw}).get("ok"):
+                raise SystemExit("Wrong password.")
+            return
+        email = cfg.get("email", "")
+        e = input(f"Teacher login email{' [' + email + ']' if email else ''}: ").strip() or email
+        pw = getpass.getpass("Password (typing will not show): ")
+        try:
+            self.token = sb_http(f"{SB_URL}/auth/v1/token?grant_type=password", {"email": e, "password": pw})["access_token"]
+            self.rpc("tp_admin_counts")
+        except Exception as ex:
+            raise SystemExit("Login failed: " + str(ex))
+        cfg = {k: v for k, v in cfg.items() if k != "url"}; cfg["email"] = e
+        json.dump(cfg, open(CFG, "w"))
+    def rpc(self, fn, args=None):
+        return sb_http(f"{SB_URL}/rest/v1/rpc/{fn}", args or {}, self.token)
+    def save(self, paper):
+        if self.sheets: return post(self.url, {"action": "admin", "op": "savePaper", "password": self.pw, "paper": paper})
+        try: return self.rpc("tp_admin_save", {"p_paper": paper})
+        except Exception as ex: return {"ok": False, "error": str(ex)}
+    def set_category(self, pid, cat):
+        if self.sheets: return post(self.url, {"action": "admin", "op": "setCategory", "password": self.pw, "id": pid, "category": cat})
+        try: return self.rpc("tp_admin_set", {"p_id": pid, "p_patch": {"category": cat}})
+        except Exception as ex: return {"ok": False, "error": str(ex)}
+
 def main():
     items = plan()
     if not items:
@@ -92,31 +148,16 @@ def main():
         print(f"\n[{cat}] {len(names)} papers"); [print("   ", n) for n in names[:6]]; len(names) > 6 and print("    ...")
     if "--upload" not in sys.argv:
         print("\nNothing uploaded. Check the names above, then run:  python upload_target_jee.py --upload"); return
-    # The Web App URL is fixed (same as config.js); no prompt, so nothing typed here is ever saved.
-    url = DEFAULT_URL
-    if os.path.exists(CFG):
-        try:
-            u = json.load(open(CFG)).get("url", "")
-        except Exception:
-            u = ""
-        if u.startswith("https://script.google.com/"):
-            url = u
-        else:
-            os.remove(CFG)   # old/wrong value (e.g. a password typed at the URL prompt): delete it
-            print("Removed an invalid upload_config.json.")
-    print("Web App:", url[:60] + "...")
-    pw = getpass.getpass("Admin password (typing will not show): ")
-    if not post(url, {"action": "admin", "op": "login", "password": pw}).get("ok"):
-        print("Wrong password."); return
+    be = Backend()
     log = json.load(open(LOG)) if os.path.exists(LOG) else {}
     if "--fix-folders" in sys.argv:
-        # move already-uploaded papers into their right folder (needs the new Apps Script)
+        # move already-uploaded papers into their right folder
         cats = {os.path.relpath(f, HERE): cat for f, cat, _ in items}
         done = bad = 0
         for key, rec in log.items():
             cat = cats.get(key); pid = rec.get("id")
             if not cat or not pid: continue
-            r = post(url, {"action": "admin", "op": "setCategory", "password": pw, "id": pid, "category": cat})
+            r = be.set_category(pid, cat)
             if r.get("ok"): done += 1
             else: bad += 1; print("  FAIL", rec.get("name"), "-", r.get("error"))
         print(f"Folders fixed: {done}, failed: {bad}"); return
@@ -130,7 +171,7 @@ def main():
         p["settings"]["category"] = cat
         p["settings"].setdefault("subject", "Mathematics")
         try:
-            r = post(url, {"action": "admin", "op": "savePaper", "password": pw, "paper": p})
+            r = be.save(p)
             if r.get("ok"):
                 log[key] = {"name": name, "id": r.get("id"), "at": time.strftime("%Y-%m-%d %H:%M")}
                 json.dump(log, open(LOG, "w"), indent=1); ok += 1; print("  ok  ", name)
